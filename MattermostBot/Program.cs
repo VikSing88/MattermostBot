@@ -66,6 +66,11 @@ namespace MattermostBot
     private static HttpClient client;
 
     /// <summary>
+    /// Uri маттермоста.
+    /// </summary>
+    private static string MattermostUri;
+
+    /// <summary>
     /// Токен бота.
     /// </summary>
     private static string botToken;
@@ -175,6 +180,7 @@ namespace MattermostBot
           i++;
         }
         shortcutCallbackID = config["ShortcutCallbackID"];
+        MattermostUri = config["MattermostUri"];
         botToken = config["BotToken"];
         pathToDownloadDirectory = config["PathToDownloadDirectory"];
         botID = config["BotID"];
