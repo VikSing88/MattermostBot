@@ -1,8 +1,8 @@
-﻿namespace SlackBot
+﻿namespace MattermostBot
 {
-  class SlackChannelInfo
+  class ChannelInfo
   {
-    public SlackChannelInfo(string channelID, int daysBeforeWarning, int daysBeforeUnpining, bool autoPinNewMessage, string welcomeMessage)
+    public ChannelInfo(string channelID, int daysBeforeWarning, int daysBeforeUnpining, bool autoPinNewMessage, string welcomeMessage)
     {
       ChannelID = channelID;
       DaysBeforeWarning = daysBeforeWarning;

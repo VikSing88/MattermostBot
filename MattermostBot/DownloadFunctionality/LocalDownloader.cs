@@ -2,9 +2,10 @@
 using System.IO;
 using System.Net;
 using System.Text;
+using MattermostBot.DTOs;
 using SlackNet;
 
-namespace SlackBot.DownloadFunctionality
+namespace MattermostBot.DownloadFunctionality
 {
   class LocalDownloader : IDownloader
   {
@@ -36,7 +37,7 @@ namespace SlackBot.DownloadFunctionality
       using StreamWriter sw = new StreamWriter(@$"{pathToThreadFolder}\thread.txt");
       foreach (var message in thread.Messages)
       {
-        var messageTimestamp = SlackBot.ConvertUnixTimeStampToDateTime(Convert.ToDouble(message.Ts.Substring(0, message.Ts.IndexOf('.'))));
+        var messageTimestamp = MattermostBot.ConvertUnixTimeStampToDateTime(Convert.ToDouble(message.Ts.Substring(0, message.Ts.IndexOf('.'))));
         var userName = slackApi.Users.GetUserNameById(message.User).User.RealName;
         //string text = $"{messageTimestamp}\r\n" +
         //  $"{userName}: {message.Text}\r\n";
@@ -59,7 +60,7 @@ namespace SlackBot.DownloadFunctionality
     /// <returns>Путь до папки для скачивания треда.</returns>
     private string CreateThreadFolder(MessageDTO firstMessageInThread, string channelName)
     {
-      var threadTS = SlackBot.ConvertUnixTimeStampToDateTime
+      var threadTS = MattermostBot.ConvertUnixTimeStampToDateTime
         (Convert.ToDouble(firstMessageInThread.Ts.Substring(0, firstMessageInThread.Ts.IndexOf('.'))))
         .ToString("yyyy/MM/dd HH-mm");
       var userName = slackApi.Users.GetUserNameById(firstMessageInThread.User).User.RealName;

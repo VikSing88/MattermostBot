@@ -1,4 +1,4 @@
-﻿namespace SlackBot.DTOs
+﻿namespace MattermostBot.DTOs
 {
   class UserDTO
   {

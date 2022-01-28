@@ -4,14 +4,14 @@ using SlackNet;
 using SlackNet.Events;
 using System.Linq;
 
-namespace SlackBot
+namespace MattermostBot
 {
   class AutoPinMessageHandler : IEventHandler<MessageEvent>
   {
     private readonly ISlackApiClient slack;
-    private readonly List<SlackChannelInfo> slackChannelsInfo;
+    private readonly List<ChannelInfo> slackChannelsInfo;
 
-    public AutoPinMessageHandler(ISlackApiClient slack, List<SlackChannelInfo> slackChannelsInfo)
+    public AutoPinMessageHandler(ISlackApiClient slack, List<ChannelInfo> slackChannelsInfo)
     {
       this.slack = slack;
       this.slackChannelsInfo = slackChannelsInfo;

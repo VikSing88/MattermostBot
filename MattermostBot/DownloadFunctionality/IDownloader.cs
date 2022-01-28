@@ -1,4 +1,6 @@
-﻿namespace SlackBot.DownloadFunctionality
+﻿using MattermostBot.DTOs;
+
+namespace MattermostBot.DownloadFunctionality
 {
   interface IDownloader
   {

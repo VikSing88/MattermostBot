@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace SlackBot
+namespace MattermostBot.DTOs
 {
   class ThreadDTO
   {

@@ -2,7 +2,7 @@
 using SlackNet.Interaction;
 using System.Threading.Tasks;
 
-namespace SlackBot.DownloadFunctionality
+namespace MattermostBot.DownloadFunctionality
 {
   class DownloadHandler : IMessageShortcutHandler
   {
