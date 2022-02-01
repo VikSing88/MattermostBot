@@ -1,4 +1,4 @@
-﻿using SlackNet;
+﻿/*using SlackNet;
 using SlackNet.Interaction;
 using System.Threading.Tasks;
 
@@ -31,4 +31,4 @@ namespace MattermostBot.DownloadFunctionality
       return Task.CompletedTask;
     }
   }
-}
+}*/
