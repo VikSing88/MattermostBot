@@ -171,64 +171,19 @@ namespace MattermostBot
       }
     }
 
-    private static void ConnectToSlack()
-    {
-      //var webProxy = new WebProxy();
-      mattermostApi = new MattermostApiAdapter(MattermostUri, botToken);
-      /*webProxy.UseDefaultCredentials = true;
-      try
-      {
-        client = new HttpClient(new HttpClientHandler() { Proxy = webProxy });
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", botToken);
-      }
-      catch (Exception ex)
-      {
-        Console.WriteLine($"Ошибка при подключении к slack: {ex.Message}");
-        throw;
-      }*/
-    }
-
-    private static async void ConfigureSlackService()
-    {
-      /*var httpClient = new HttpClient(new HttpClientHandler
-      {
-        Proxy = new WebProxy { UseDefaultCredentials = true, },
-      });
-      var jsonSettings = Default.JsonSettings(Default.SlackTypeResolver(Default.AssembliesContainingSlackTypes));
-
-      slackService = new SlackServiceBuilder()
-        .UseHttp(p => Default.Http(jsonSettings, () => httpClient))
-        .UseJsonSettings(p => jsonSettings)
-        .UseApiToken(botToken)
-        .UseAppLevelToken(botLevelToken)
-        .RegisterMessageShortcutHandler(shortcutCallbackID, ctx =>
-        {
-          var slackApi = ctx.ServiceProvider.GetApiClient();
-          return new DownloadHandler(slackApi, new LocalDownloader(botToken, slackApi, pathToDownloadDirectory));
-        })
-        .RegisterEventHandler(p =>
-        {
-          var slackApi = p.ServiceProvider.GetApiClient();
-          return new AutoPinMessageHandler(slackApi, SlackChannelsInfo);
-        });
-      await slackService.GetSocketModeClient().Connect();*/
-    }
-
     public static void Main()
     {
       try
       {
         Console.WriteLine("Работа бота начата.");
-
         ReadConfig();
-        ConfigureSlackService();
-        ConnectToSlack();
-        mattermostApi.StartWebSocket(m => EventHandler(m));
+        mattermostApi = new MattermostApiAdapter(MattermostUri, botToken)
+          .RegisterEventHadler(m => EventHandler(m))
+          .Connect();
         while (true)
         {
           foreach(var channelInfo in ChannelsInfo)
           {
-            //mattermostApi.PostMessage(channelInfo.ChannelID, "Hello!");
             tasks.Add(Task.Run(() => ProcessPinsList(channelInfo)));
           }
           Task.WaitAll(tasks.ToArray());
@@ -241,37 +196,25 @@ namespace MattermostBot
       }
     }
 
-    private static void EventHandler(MessageEvent messageEvent)
+    /// <summary>
+    /// Обработчик события появления на канале нового сообщения.
+    /// </summary>
+    /// <param name="messageEventInfo">Информация о событии.</param>
+    private static void EventHandler(MessageEventInfo messageEventInfo)
     {
-      //var result = Task.CompletedTask;
-      if (messageEvent.rootID == "")
+      if (messageEventInfo.rootID == "")
       {
-        foreach (var channelInfo in ChannelsInfo.Where(info => info.ChannelID == messageEvent.channelID))
+        foreach (var channelInfo in ChannelsInfo.Where(info => info.ChannelID == messageEventInfo.channelID))
         {
           if (!string.IsNullOrEmpty(channelInfo.WelcomeMessage))
-            /*result = result.ContinueWith(
-              (t) => mattermostApi.PostEphemeral(channelInfo.WelcomeMessage, postData.user_id, postData.channel_id));*/
-            mattermostApi.PostEphemeralMessage(messageEvent.channelID, messageEvent.userID, channelInfo.WelcomeMessage);
+            mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, messageEventInfo.userID, channelInfo.WelcomeMessage);
 
           if (channelInfo.AutoPinNewMessage)
-            //result = result.ContinueWith(
-            //  (t) => mattermostApi.PinMessage(postData.id));
-            mattermostApi.PinMessage(messageEvent.id);
+            mattermostApi.PinMessage(messageEventInfo.id);
 
           break;
         }
       }
-      else
-      if (messageEvent.message.Contains("@roberto get_thread"))
-      {
-        mattermostApi.PostEphemeralMessage(messageEvent.channelID, messageEvent.userID, "YES!");
-      }
-      else
-      if (messageEvent.message.Contains("@roberto"))
-      {
-        mattermostApi.PostEphemeralMessage(messageEvent.channelID, messageEvent.userID, "Can i help you?");
-      }
-
     }
 
       /// <summary>

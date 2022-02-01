@@ -18,6 +18,8 @@ namespace ApiAdapter
   {
     private readonly Api api;
 
+    private Action<MessageEventInfo> EventHandler;
+
     /// <summary>
     /// Тело запроса добавления эмодзи.
     /// </summary>
@@ -96,7 +98,26 @@ namespace ApiAdapter
       Post.CreateEphemeral(api, userID, channelID, message);
     }
 
-    public async void StartWebSocket(Action<MessageEvent> messageHandler)
+    public IApiClient RegisterEventHadler(Action<MessageEventInfo> eventHandler)
+    {
+      EventHandler = eventHandler;
+      return this;
+    }
+
+    public IApiClient Connect()
+    { 
+      if (EventHandler != null)
+      {
+        StartWebSocket(EventHandler);
+      }
+      return this;
+    }
+
+    /// <summary>
+    /// Стартовать веб-сокет для получения сообщений о событиях Маттермост.
+    /// </summary>
+    /// <param name="eventHandler">Обработчик события.</param>
+    private async void StartWebSocket(Action<MessageEventInfo> eventHandler)
     {
       using var websocket = new ClientWebSocket();
       websocket.Options.SetRequestHeader("Authorization", $"Bearer {api.Settings.AccessToken}");
@@ -111,8 +132,8 @@ namespace ApiAdapter
         if (message.@event == "posted")
         {
           var postData = JsonConvert.DeserializeObject<PostData>(message.data.post);
-          messageHandler(
-            new MessageEvent() { id = postData.id, message = postData.message, channelID = postData.channel_id, userID = postData.user_id, rootID = postData.root_id});
+          eventHandler(
+            new MessageEventInfo() { id = postData.id, message = postData.message, channelID = postData.channel_id, userID = postData.user_id, rootID = postData.root_id});
         }
       }
     }

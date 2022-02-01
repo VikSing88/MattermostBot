@@ -24,9 +24,9 @@ namespace ApiClient
   }
 
   /// <summary>
-  /// Класс события о сообщении. 
+  /// Класс события о появлении нового сообщении в канале. 
   /// </summary>
-  public class MessageEvent
+  public class MessageEventInfo
   {
     /// <summary>
     /// ИД сообщения.
@@ -95,8 +95,6 @@ namespace ApiClient
     /// <returns></returns>
     public Message[] GetThreadMessages(string messageId);
 
-    //public void GetUserByName ();
-
     /// <summary>
     /// Запинить сообщение.
     /// </summary>
@@ -111,8 +109,18 @@ namespace ApiClient
     /// <param name="message">Текст сообщения.</param>
     public void PostEphemeralMessage(string channelID, string userID, string message);
 
+    /// <summary>
+    /// Зарегистрировать обработчик события появления на канале нового сообщения.
+    /// </summary>
+    /// <param name="eventHandler">Обработчик события.</param>
+    /// <returns>Экземпляр <see cref="IApiClient"/>.</returns>
+    public IApiClient RegisterEventHadler(Action<MessageEventInfo> eventHandler);
 
-    public void StartWebSocket(Action<MessageEvent> messageHandler);
+    /// <summary>
+    /// Подключиться к api-клиенту.
+    /// </summary>
+    /// <returns>Экземпляр <see cref="IApiClient"/>.</returns>
+    public IApiClient Connect();
 
   }
 }
