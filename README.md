@@ -1,7 +1,7 @@
-# SlackBot
+# Mattermost
 ## Описание
 
-Бот для Slack, выполняющий вспомогательные функции в каналах консультирования отдела поддержки и разработки Directum 5.
+Бот для Mattermost, выполняющий вспомогательные функции в каналах консультирования отдела поддержки и разработки Directum 5.
 Возможности:
 - приветственное сообщение в треде для новых участников в канале;
 - автоматическое закрепление (pin) новых сообщений в канале;
@@ -10,38 +10,30 @@
 
 ## Настройка Workspace
 
-На сайте конфигурации бота (https://api.slack.com/apps/...):
-- создать новое приложение по инструкции https://api.slack.com/authentication/basics;
+- На странице администратора Mattermost конфигурации бота (http://your-mattermost/admin_console/integrations/bot_accounts) включить возможность создавать бота ("Enable Bot Account Creation");
 
-- на вкладке Socket Mode включить переключатель "Enable Socket Mode".
+- перейти на страницу интеграций команды http://your-mattermost/admin_console/integrations/bot_accounts;
 
-- создать App-level Token на вкладке Basic Information с разрешением connections:write.  
+- добавить новый аккаунт для бота (кнопка "Add Bot Account");
 
-- на вкладке Interactivity & Shortcuts создать свой Shortcut для сообщений и придумать ему Callback Id.
+- заполнить поля, назначить боту роль member и выдать максимальные права по ней;
 
-- на вкладке OAuth & Permissions выдать боту следующие разрешения:
-pins:read, pins:write, channels:history, groups:history, im:history, mpim:history, reactions:write, chat:write, users:read, files:read.
+Внимание! При создании бота создается токен личного доступа. **Значение токена доступно только сразу после создания аккаунта бота**, поэтому требуется его сразу скопировать и сохранить. ИД токена, который всегда доступен в окне информации о боте, не эквивалентен значению токена.
 
-- на вкладке Event Subscriptions включить переключатель "Enable Events" и в группе Subscribe to bot events добавить события "message.channels" и "message.groups".
-
-- добавить бота в каналы, в которых он будет использоваться.
+- добавить бота в команды и каналы, в которых он будет использоваться.
 
 ## Настройка приложения
 
 В файле appsettings.json заполнить следующие настройки:
 
-- BotToken: токен бота, который можно получить на вкладке OAuth & Permissions;
+- MattermostUri: Uri, где развернут Mattermost;
 
-- BotLevelToken: еще один токен бота, который необходим для работы Socket mod'a. Найти/создать можно на вкладке Basic Information в категории App-Level Tokens;
+- BotToken: токен бота, который можно получить при создании аккаунта бота;
 
-- BotId: id бота, можно найти в slack'e;
-
-- ShortcutCallbackID: Callback Id, который был создан при настройке Workspace ранее;
-
-- PathToDownloadDirectory: Имя сетевой папки, в которую бот будет скачивать треды;
+- BotId: id бота;
 
 - Channels: список каналов, в которых бот будет отпинивать неактивные сообщения:
-  - ChannelID: Id канала, за сообщениями которого следит бот (можно найти в свойствах канала в Slack); ![image](https://user-images.githubusercontent.com/2363923/126785486-06eef727-65b7-4b21-997c-ad5b4ef3c154.png)
+  - ChannelID: Id канала, за сообщениями которого следит бот (можно найти в свойствах канала в Mattermost); ![image](https://user-images.githubusercontent.com/58815407/151989734-4653ea23-8f9a-4bdb-828f-3fa3697d0f77.png)
 
   - DaysBeforeWarning: количество дней после последнего сообщения, через которое бот отправит предупреждение об неактивном треде;
 
@@ -53,4 +45,4 @@ pins:read, pins:write, channels:history, groups:history, im:history, mpim:histor
 
 ## Пример
 
-![image](https://user-images.githubusercontent.com/55059498/126780340-452a4b0a-2d10-4069-8569-81c8c6a12fce.png)
+< будет позже >
