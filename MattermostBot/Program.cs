@@ -407,18 +407,6 @@ namespace MattermostBot
       return messageDateTime.AddMinutes(20) < DateTime.Now;
     }
 
-    ///// <summary>
-    ///// Конвертировать отметку времени в тип DateTime.
-    ///// </summary>
-    ///// <param name="unixTimeStamp">Отметка времени.</param>
-    ///// <returns>Дата и время.</returns>
-    //public static DateTime ConvertUnixTimeStampToDateTime(double unixTimeStamp)
-    //{
-    //  var dateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0, System.DateTimeKind.Utc);
-    //  dateTime = dateTime.AddSeconds(unixTimeStamp).ToLocalTime();
-    //  return dateTime;
-    //}
-
     /// <summary>
     /// Отправить сообщение в тред закрепленного сообщения.
     /// </summary>
@@ -432,70 +420,4 @@ namespace MattermostBot
     #endregion
   }
 
-  /*
-  static class GetThreadExtension
-  {
-    /// <summary>
-    /// Получить весь тред.
-    /// </summary>
-    /// <param name="messageTimestamp">Время первого сообщения треда.</param>
-    /// <param name="channel">Канал треда.</param>
-    /// <returns>Все сообщения треда.</returns>
-    public static ThreadDTO GetThread(this IConversationsApi conversations, string messageTimestamp, string channel)
-    {
-      var messages = conversations.Replies(channel, messageTimestamp, limit: 50).Result.Messages;
-      List<MessageDTO> messageDTO = new List<MessageDTO>(messages.Count);
-      ThreadDTO thread = new ThreadDTO();
-      foreach (var message in messages)
-      {
-        messageDTO.Add(new MessageDTO
-        {
-          Text = message.Text,
-          Ts = message.Ts,
-          User = message.User,
-          Files = GetFiles(new List<FileDTO>())
-        });
-
-        List<FileDTO> GetFiles(List<FileDTO> list)
-        {
-          if (message.Files.Count == 0) return null;
-          foreach (var file in message.Files)
-          {
-            list.Add(new FileDTO
-            {
-              Name = file.Name,
-              UrlPrivateDownload = file.UrlPrivateDownload
-            });
-          }
-          return list;
-        }
-      }
-      thread.Messages = messageDTO;
-      return thread;
-    }
-  }
- 
-
-  static class GetUserNameByIdExtension
-  {
-    /// <summary>
-    /// Получить ник пользователя по его id.
-    /// </summary>
-    /// <param name="userId"></param>
-    /// <returns>Ник пользователя.</returns>
-    public static UserDTO GetUserNameById(this IUsersApi users, string userId)
-    {
-      var user = users.Info(userId).Result;
-      DTOs.User DTOsUser = new DTOs.User
-      {
-        Name = user.Name,
-        RealName = user.RealName
-      };
-      UserDTO userDTO = new UserDTO
-      {
-        User = DTOsUser
-      };
-      return userDTO;
-    }
-  } */
 }
