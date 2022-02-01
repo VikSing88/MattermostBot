@@ -71,16 +71,6 @@ namespace MattermostBot
     private static IApiClient mattermostApi;
 
     /// <summary>
-    /// Callback id shortcut команды.
-    /// </summary>
-    private static string shortcutCallbackID;
-
-    /// <summary>
-    /// Путь куда будет скачиваться тред.
-    /// </summary>
-    private static string pathToDownloadDirectory;
-
-    /// <summary>
     /// Информация о всех каналах.
     /// </summary>
     private static readonly List<ChannelInfo> ChannelsInfo = new List<ChannelInfo>();
@@ -158,10 +148,8 @@ namespace MattermostBot
           ChannelsInfo.Add(new ChannelInfo(channelID, daysBeforeWarning, daysBeforeUnpining, autoPinNewMessage, welcomeMessage));
           i++;
         }
-        shortcutCallbackID = config["ShortcutCallbackID"];
         MattermostUri = config["MattermostUri"];
         botToken = config["BotToken"];
-        pathToDownloadDirectory = config["PathToDownloadDirectory"];
         botID = config["BotID"];
       }
       catch (Exception ex)
