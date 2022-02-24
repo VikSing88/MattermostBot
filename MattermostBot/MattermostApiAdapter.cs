@@ -130,11 +130,11 @@ namespace ApiAdapter
     /// <summary>
     /// Получить Uri для подключения к веб-сокету Маттермост.
     /// </summary>
-    /// <returns>Uri для подключения к веб-сокету Маттермост</returns>
+    /// <returns>Uri для подключения к веб-сокету Маттермост.</returns>
     private string GetWebSocketUri()
     {
-      Regex rgx = new Regex(@"https?");
-      return rgx.Replace(api.Settings.ServerUri.AbsoluteUri, @"ws") + "api/v4/websocket";
+      Regex rgx = new Regex("https?");
+      return rgx.Replace(api.Settings.ServerUri.AbsoluteUri, "ws") + "api/v4/websocket";
     }
 
     /// <summary>
