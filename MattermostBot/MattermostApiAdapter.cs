@@ -87,7 +87,7 @@ namespace ApiAdapter
       Post.CreateEphemeral(api, userID, channelID, message);
     }
 
-    public IApiClient RegisterEventHadler(Action<MessageEventInfo> eventHandler)
+    public IApiClient RegisterEventHandler(Action<MessageEventInfo> eventHandler)
     {
       EventHandler = eventHandler;
       return this;

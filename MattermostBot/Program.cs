@@ -166,7 +166,7 @@ namespace MattermostBot
         Console.WriteLine("Работа бота начата.");
         ReadConfig();
         mattermostApi = new MattermostApiAdapter(MattermostUri, botToken)
-          .RegisterEventHadler(m => EventHandler(m))
+          .RegisterEventHandler(m => EventHandler(m))
           .Connect();
         while (true)
         {
