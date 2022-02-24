@@ -61,9 +61,9 @@ namespace MattermostBot
     private static string MattermostUri;
 
     /// <summary>
-    /// Токен бота.
+    /// Токен личного доступа бота.
     /// </summary>
-    private static string botToken;
+    private static string accessToken;
 
     /// <summary>
     /// Клиент для работы со маттермостом.
@@ -81,9 +81,9 @@ namespace MattermostBot
     private static readonly List<Task> tasks = new List<Task>();
 
     /// <summary>
-    /// ID бота.
+    /// ID пользователя бота.
     /// </summary>
-    private static string botID;
+    private static string botUserID;
 
     /// <summary>
     /// Действие, которое надо совершить над запиненным сообщением.
@@ -149,8 +149,8 @@ namespace MattermostBot
           i++;
         }
         MattermostUri = config["MattermostUri"];
-        botToken = config["BotToken"];
-        botID = config["BotID"];
+        accessToken = config["AccessToken"];
+        botUserID = config["BotUserID"];
       }
       catch (Exception ex)
       {
@@ -165,7 +165,7 @@ namespace MattermostBot
       {
         Console.WriteLine("Работа бота начата.");
         ReadConfig();
-        mattermostApi = new MattermostApiAdapter(MattermostUri, botToken)
+        mattermostApi = new MattermostApiAdapter(MattermostUri, accessToken)
           .RegisterEventHandler(m => EventHandler(m))
           .Connect();
         while (true)
@@ -299,7 +299,7 @@ namespace MattermostBot
     /// <param name="messageTimestamp">Отметка времени открепляемого сообщения.</param>
     private static void AddEmoji(string messageID)
     {
-      mattermostApi.AddReaction(botID, messageID, emojiName);
+      mattermostApi.AddReaction(botUserID, messageID, emojiName);
     }
 
     /// <summary>
@@ -313,12 +313,12 @@ namespace MattermostBot
     {
       if (messageDateTime != null)      
       {
-        if ((userID != botID) & (IsOldPinedMessage(messageDateTime, channelInfo.DaysBeforeWarning)))
+        if ((userID != botUserID) & (IsOldPinedMessage(messageDateTime, channelInfo.DaysBeforeWarning)))
         {
           return MessageAction.NeedWarning;
         }
         else
-        if ((userID == botID) & (IsOldPinedMessage(messageDateTime, channelInfo.DaysBeforeUnpining)))
+        if ((userID == botUserID) & (IsOldPinedMessage(messageDateTime, channelInfo.DaysBeforeUnpining)))
         {
           return MessageAction.NeedUnpin;
         }
