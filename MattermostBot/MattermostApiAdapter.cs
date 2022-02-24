@@ -21,17 +21,6 @@ namespace ApiAdapter
     private Action<MessageEventInfo> EventHandler;
 
     /// <summary>
-    /// Тело запроса добавления эмодзи.
-    /// </summary>
-    private class AddReactionRequestBody
-    {
-      public string user_id;
-      public string post_id;
-      public string emoji_name;
-      public Int64 create_at;
-    }
-
-    /// <summary>
     /// Сообщение с веб-сокета сервера.
     /// </summary>
     private class ServerWebSocketMessage
@@ -90,7 +79,7 @@ namespace ApiAdapter
     public void AddReaction(string userId, string messageID, string emodjiName)
     {
       api.PostAsync("reactions", null, 
-        new AddReactionRequestBody() { user_id = userId, post_id = messageID, emoji_name = emodjiName, create_at = 0 });
+        new { user_id = userId, post_id = messageID, emoji_name = emodjiName, create_at = 0 });
     }
 
     public void PostEphemeralMessage(string channelID, string userID, string message)
