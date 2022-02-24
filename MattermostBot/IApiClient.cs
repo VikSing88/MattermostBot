@@ -114,7 +114,7 @@ namespace ApiClient
     /// </summary>
     /// <param name="eventHandler">Обработчик события.</param>
     /// <returns>Экземпляр <see cref="IApiClient"/>.</returns>
-    public IApiClient RegisterEventHadler(Action<MessageEventInfo> eventHandler);
+    public IApiClient RegisterEventHandler(Action<MessageEventInfo> eventHandler);
 
     /// <summary>
     /// Подключиться к api-клиенту.
