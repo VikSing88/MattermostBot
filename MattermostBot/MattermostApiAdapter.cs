@@ -138,17 +138,6 @@ namespace ApiAdapter
     }
 
     /// <summary>
-    /// Нормализовать дату и время сообщения.
-    /// </summary>
-    /// <param name="dateTime">Дата и время сообщения.</param>
-    /// <returns>Нормализованные дата и время соощения.</returns>
-    private DateTime NormilizeDateTime(DateTime? dateTime)
-    {
-      DateTime result = dateTime?.AddHours(4) ?? DateTime.MinValue;
-      return result;
-    }
-
-    /// <summary>
     /// Получить список сообщений Mattermost по строке запроса.
     /// </summary>
     /// <param name="request">Запрос.</param>
@@ -159,7 +148,7 @@ namespace ApiAdapter
       PostList postList = j.ConvertToObject<PostList>();
       postList.List = postList.Convert(j).List;
       return postList.List.Select(p =>
-        new Message { messageId = p.id, dateTime = NormilizeDateTime(p.create_at), userId = p.user_id }).ToArray();
+        new Message { messageId = p.id, dateTime = p.create_at ?? DateTime.MinValue, userId = p.user_id }).ToArray();
     }
 
     public MattermostApiAdapter(string uri, string token)
