@@ -146,22 +146,27 @@ namespace ApiAdapter
 
   public class MattermostApiClientBuilder : IApiClientBuilder
   {
-
+    /// <summary>
+    /// Api-клиент.
+    /// </summary>
     private IApiClient apiClient;
 
-    private Action<MessageEventInfo> EventHandler;
+    /// <summary>
+    /// Обработчик события опубликованного сообщения.
+    /// </summary>
+    private Action<MessageEventInfo> postedMessageEventHandler;
 
     public IApiClientBuilder RegisterEventHandler(Action<MessageEventInfo> eventHandler)
     {
-      EventHandler = eventHandler;
+      postedMessageEventHandler = eventHandler;
       return this;
     }
 
     public IApiClient Connect()
     {
-      if (EventHandler != null)
+      if (postedMessageEventHandler != null)
       {
-        apiClient.StartWebSocket(EventHandler);
+        apiClient.StartWebSocket(postedMessageEventHandler);
       }
       return apiClient;
     }
