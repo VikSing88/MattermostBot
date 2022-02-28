@@ -287,10 +287,8 @@ namespace MattermostBot
     private static MessageAction GetPinedMessageAction(string messageId, ChannelInfo channelInfo) 
     {
       var messages = mattermostApi.GetThreadMessages(messageId);
-      var sorted_messages = messages.OrderBy(m => m.dateTime).ToArray();
-      var latest_message_number = sorted_messages.Count() - 1;
-      return DefineActionByDateAndAuthorOfMessage(sorted_messages[latest_message_number].dateTime,
-        sorted_messages[latest_message_number].userId, channelInfo );
+      var latest_message = messages.OrderBy(m => m.dateTime).Last();
+      return DefineActionByDateAndAuthorOfMessage(latest_message.dateTime, latest_message.userId, channelInfo );
     }
 
     /// <summary>
