@@ -55,7 +55,7 @@ namespace ApiClient
   }
 
   /// <summary>
-  /// Интерфейс адаптера api-клиента.
+  /// Интерфейс api-клиента.
   /// </summary>
   public interface IApiClient
   {
@@ -118,7 +118,7 @@ namespace ApiClient
   }
 
   /// <summary>
-  /// Построитель IApiClient.
+  /// Интерфейс построителя api-клиента.
   /// </summary>
   public interface IApiClientBuilder
   {

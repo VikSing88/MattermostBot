@@ -12,10 +12,13 @@ using Newtonsoft.Json.Linq;
 namespace ApiAdapter
 {
   /// <summary>
-  /// Класс адаптера для Mattermost. 
+  /// Класс адаптера для api-клиента Mattermost. 
   /// </summary>
   public class MattermostApiAdapter : IApiClient
   {
+    /// <summary>
+    /// Объект для работы с web Api Mattermost. 
+    /// </summary>
     private readonly Api api;
 
     /// <summary>
@@ -144,6 +147,9 @@ namespace ApiAdapter
     }
   }
 
+  /// <summary>
+  /// Класс построителя api-клиента Mattermost.
+  /// </summary>
   public class MattermostApiClientBuilder : IApiClientBuilder
   {
     /// <summary>
