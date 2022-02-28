@@ -18,8 +18,6 @@ namespace ApiAdapter
   {
     private readonly Api api;
 
-    private Action<MessageEventInfo> EventHandler;
-
     /// <summary>
     /// Сообщение с веб-сокета сервера.
     /// </summary>
@@ -87,26 +85,7 @@ namespace ApiAdapter
       Post.CreateEphemeral(api, userID, channelID, message);
     }
 
-    public IApiClient RegisterEventHandler(Action<MessageEventInfo> eventHandler)
-    {
-      EventHandler = eventHandler;
-      return this;
-    }
-
-    public IApiClient Connect()
-    { 
-      if (EventHandler != null)
-      {
-        StartWebSocket(EventHandler);
-      }
-      return this;
-    }
-
-    /// <summary>
-    /// Стартовать веб-сокет для получения сообщений о событиях Маттермост.
-    /// </summary>
-    /// <param name="eventHandler">Обработчик события.</param>
-    private async void StartWebSocket(Action<MessageEventInfo> eventHandler)
+    public async void StartWebSocket(Action<MessageEventInfo> eventHandler)
     {
       using var websocket = new ClientWebSocket();
       websocket.Options.SetRequestHeader("Authorization", $"Bearer {api.Settings.AccessToken}");
@@ -162,6 +141,34 @@ namespace ApiAdapter
         TokenExpires = DateTime.MaxValue,
       };
       this.api = new Api(settings);
+    }
+  }
+
+  public class MattermostApiClientBuilder : IApiClientBuilder
+  {
+
+    private IApiClient apiClient;
+
+    private Action<MessageEventInfo> EventHandler;
+
+    public IApiClientBuilder RegisterEventHandler(Action<MessageEventInfo> eventHandler)
+    {
+      EventHandler = eventHandler;
+      return this;
+    }
+
+    public IApiClient Connect()
+    {
+      if (EventHandler != null)
+      {
+        apiClient.StartWebSocket(EventHandler);
+      }
+      return apiClient;
+    }
+
+    public MattermostApiClientBuilder(string uri, string token)
+    {
+      apiClient = new MattermostApiAdapter(uri, token);
     }
   }
 }

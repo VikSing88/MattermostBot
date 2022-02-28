@@ -165,7 +165,7 @@ namespace MattermostBot
       {
         Console.WriteLine("Работа бота начата.");
         ReadConfig();
-        mattermostApi = new MattermostApiAdapter(MattermostUri, accessToken)
+        mattermostApi = new MattermostApiClientBuilder(MattermostUri, accessToken)
           .RegisterEventHandler(m => EventHandler(m))
           .Connect();
         while (true)

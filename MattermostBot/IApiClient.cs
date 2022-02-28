@@ -109,18 +109,31 @@ namespace ApiClient
     /// <param name="message">Текст сообщения.</param>
     public void PostEphemeralMessage(string channelID, string userID, string message);
 
+
+    /// <summary>
+    /// Стартовать веб-сокет для получения сообщений о событиях Маттермост.
+    /// </summary>
+    /// <param name="eventHandler">Обработчик события.</param>
+    public void StartWebSocket(Action<MessageEventInfo> eventHandler);
+  }
+
+  /// <summary>
+  /// Построитель IApiClient.
+  /// </summary>
+  public interface IApiClientBuilder
+  {
     /// <summary>
     /// Зарегистрировать обработчик события появления на канале нового сообщения.
     /// </summary>
     /// <param name="eventHandler">Обработчик события.</param>
-    /// <returns>Экземпляр <see cref="IApiClient"/>.</returns>
-    public IApiClient RegisterEventHandler(Action<MessageEventInfo> eventHandler);
+    /// <returns>Экземпляр <see cref="IApiClientBuilder"/>.</returns>
+    public IApiClientBuilder RegisterEventHandler(Action<MessageEventInfo> eventHandler);
 
     /// <summary>
     /// Подключиться к api-клиенту.
     /// </summary>
     /// <returns>Экземпляр <see cref="IApiClient"/>.</returns>
     public IApiClient Connect();
-
   }
+
 }
