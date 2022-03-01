@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ApiClient
 {
@@ -109,12 +111,12 @@ namespace ApiClient
     /// <param name="message">Текст сообщения.</param>
     public void PostEphemeralMessage(string channelID, string userID, string message);
 
-
     /// <summary>
-    /// Стартовать веб-сокет для получения сообщений о событиях Маттермост.
+    /// Стартовать получение сообщений с сервера.
     /// </summary>
-    /// <param name="eventHandler">Обработчик события.</param>
-    public void StartWebSocket(Action<MessageEventInfo> eventHandler);
+    /// <param name="eventHandler">Обработчик получаемых с сервера сообщений.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    public void StartReceivingServerMessages(Action<MessageEventInfo> eventHandler, CancellationToken cancellationToken);
   }
 
   /// <summary>
@@ -127,13 +129,15 @@ namespace ApiClient
     /// </summary>
     /// <param name="eventHandler">Обработчик события.</param>
     /// <returns>Экземпляр <see cref="IApiClientBuilder"/>.</returns>
-    public IApiClientBuilder RegisterEventHandler(Action<MessageEventInfo> eventHandler);
+    public IApiClientBuilder RegisterNewPostEventHandler(Action<MessageEventInfo> eventHandler);
 
     /// <summary>
     /// Подключиться к api-клиенту.
     /// </summary>
+    /// <param name="cancellationToken">Токен отмены.</param>
     /// <returns>Экземпляр <see cref="IApiClient"/>.</returns>
-    public IApiClient Connect();
+    public IApiClient Connect(CancellationToken cancellationToken);    
+
   }
 
 }

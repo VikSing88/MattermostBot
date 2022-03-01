@@ -161,13 +161,14 @@ namespace MattermostBot
 
     public static void Main()
     {
+      Console.WriteLine("Работа бота начата.");
+      using CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
       try
       {
-        Console.WriteLine("Работа бота начата.");
         ReadConfig();
         mattermostApi = new MattermostApiClientBuilder(MattermostUri, accessToken)
-          .RegisterEventHandler(m => EventHandler(m))
-          .Connect();
+          .RegisterNewPostEventHandler(m => NewPostEventHandler(m))
+          .Connect(cancellationTokenSource.Token);
         while (true)
         {
           foreach(var channelInfo in ChannelsInfo)
@@ -180,6 +181,7 @@ namespace MattermostBot
       }
       catch
       {
+        cancellationTokenSource.Cancel();
         Console.WriteLine("Работа бота завершилась из-за ошибок.");
       }
     }
@@ -188,7 +190,7 @@ namespace MattermostBot
     /// Обработчик события появления на канале нового сообщения.
     /// </summary>
     /// <param name="messageEventInfo">Информация о событии.</param>
-    private static void EventHandler(MessageEventInfo messageEventInfo)
+    private static void NewPostEventHandler(MessageEventInfo messageEventInfo)
     {
       if (messageEventInfo.rootID == "")
       {
