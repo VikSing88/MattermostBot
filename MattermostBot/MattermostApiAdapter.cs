@@ -90,12 +90,11 @@ namespace ApiAdapter
     }
 
     async public void StartReceivingServerMessages(Action<MessageEventInfo> eventHandler, CancellationToken cancellationToken)
-    {   
-      var webSocket = new ClientWebSocket();
+    {
+      using var webSocket = new ClientWebSocket();      
       webSocket.Options.SetRequestHeader("Authorization", $"Bearer {api.Settings.AccessToken}");
-      await webSocket.ConnectAsync(new Uri(GetWebSocketUri()), default);      
+      await webSocket.ConnectAsync(new Uri(GetWebSocketUri()), default);
       await StartNewPostEventHandling(webSocket, eventHandler, cancellationToken);
-      webSocket.Dispose();
     }
 
     /// <summary>
@@ -113,15 +112,12 @@ namespace ApiAdapter
           var buffer = WebSocket.CreateClientBuffer(1000, 1000);
           while (!cancellationToken.IsCancellationRequested)
           {
-            Console.WriteLine("0");
             var responce = await webSocket.ReceiveAsync(buffer, cancellationToken);
             var eventMessage = Encoding.UTF8.GetString(buffer.Slice(0, responce.Count));
-            Console.WriteLine("1");
             ServerWebSocketMessage message = JsonConvert.DeserializeObject<ServerWebSocketMessage>(eventMessage);
             if (message.@event == "posted")
             {
               var postData = JsonConvert.DeserializeObject<PostData>(message.data.post);
-              Console.WriteLine(postData.message);
               eventHandler(
                 new MessageEventInfo() { id = postData.id, message = postData.message, channelID = postData.channel_id, userID = postData.user_id, rootID = postData.root_id });
             }
