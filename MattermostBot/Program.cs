@@ -56,7 +56,7 @@ namespace MattermostBot
     #region Поля и свойства
 
     /// <summary>
-    /// Uri маттермоста.
+    /// Uri сервера Mattermost.
     /// </summary>
     private static string MattermostUri;
 
