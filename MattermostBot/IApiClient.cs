@@ -132,7 +132,7 @@ namespace ApiClient
     public IApiClientBuilder RegisterNewPostEventHandler(Action<MessageEventInfo> eventHandler);
 
     /// <summary>
-    /// Подключиться к api-клиенту.
+    /// Подключиться к серверу.
     /// </summary>
     /// <param name="cancellationToken">Токен отмены.</param>
     /// <returns>Экземпляр <see cref="IApiClient"/>.</returns>
