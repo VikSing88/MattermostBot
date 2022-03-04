@@ -89,21 +89,21 @@ namespace ApiAdapter
       Post.CreateEphemeral(api, userID, channelID, message);
     }
 
-    async public void StartReceivingServerMessages(Action<MessageEventInfo> eventHandler, CancellationToken cancellationToken)
+    async public void StartReceivingServerMessages(Action<MessageEventInfo> newPostEventHandler, CancellationToken cancellationToken)
     {
       using var webSocket = new ClientWebSocket();      
       webSocket.Options.SetRequestHeader("Authorization", $"Bearer {api.Settings.AccessToken}");
       await webSocket.ConnectAsync(new Uri(GetWebSocketUri()), default);
-      await StartNewPostEventHandling(webSocket, eventHandler, cancellationToken);
+      await StartNewPostEventHandling(webSocket, newPostEventHandler, cancellationToken);
     }
 
     /// <summary>
-    /// 
+    /// Начать обработку событий поступления новых сообщений.
     /// </summary>
-    /// <param name="webSocket"></param>
-    /// <param name="eventHandler"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
+    /// <param name="webSocket">Веб-сокет.</param>
+    /// <param name="eventHandler">Обработчик событий поступления новых сообщений.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Таска старта обработки событий поступления новых сообщений.</returns>
     private Task StartNewPostEventHandling(ClientWebSocket webSocket, Action<MessageEventInfo> eventHandler, CancellationToken cancellationToken)
     {
       return Task.Run(

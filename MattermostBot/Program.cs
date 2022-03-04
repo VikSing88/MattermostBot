@@ -334,8 +334,7 @@ namespace MattermostBot
     /// <returns>Признак, является ли закрепленное сообщение старым.</returns>
     private static bool IsOldPinedMessage(DateTime messageDateTime, int DayCount)
     {
-      //return messageDateTime.AddDays(DayCount) < DateTime.UtcNow;    // ВНИМАНИЕ!!
-      return messageDateTime.AddMinutes(10) < DateTime.UtcNow;
+      return messageDateTime.AddDays(DayCount) < DateTime.UtcNow; 
     }
 
     /// <summary>

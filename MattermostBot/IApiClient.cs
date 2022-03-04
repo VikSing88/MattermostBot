@@ -114,9 +114,9 @@ namespace ApiClient
     /// <summary>
     /// Стартовать получение сообщений с сервера.
     /// </summary>
-    /// <param name="eventHandler">Обработчик получаемых с сервера сообщений.</param>
+    /// <param name="newPostEventHandler">Обработчик событий поступления новых сообщений.</param>
     /// <param name="cancellationToken">Токен отмены.</param>
-    public void StartReceivingServerMessages(Action<MessageEventInfo> eventHandler, CancellationToken cancellationToken);
+    public void StartReceivingServerMessages(Action<MessageEventInfo> newPostEventHandler, CancellationToken cancellationToken);
   }
 
   /// <summary>
