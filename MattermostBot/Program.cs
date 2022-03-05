@@ -1,29 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using ApiAdapter;
+using ApiClient;
 using Microsoft.Extensions.Configuration;
-using Newtonsoft.Json;
-using SlackBot.DownloadFunctionality;
-using SlackBot.DTOs;
-using SlackNet;
-using SlackNet.WebApi;
-using System.Linq;
 
-namespace SlackBot
+namespace MattermostBot
 {
-  class SlackBot
+  class MattermostBot
   {
     #region Константы
-
-    /// <summary>
-    /// 
-    /// </summary>
-    const string slackApiLink = "https://slack.com/api/";
 
     /// <summary>
     /// Количество дней до предупреждения по умолчанию.
@@ -59,7 +47,7 @@ namespace SlackBot
     /// </summary>
     private class MessageInfo
     {
-      public string timeStamp;
+      public string id;
       public MessageAction action;
     }
 
@@ -68,55 +56,34 @@ namespace SlackBot
     #region Поля и свойства
 
     /// <summary>
-    /// Http-клиент.
+    /// Uri сервера Mattermost.
     /// </summary>
-    private static HttpClient client;
+    private static string MattermostUri;
 
     /// <summary>
-    /// Токен бота.
+    /// Токен личного доступа бота.
     /// </summary>
-    private static string botToken;
+    private static string accessToken;
 
     /// <summary>
-    /// Токен бота для подключения через Socket Mode.
+    /// Клиент для работы со маттермостом.
     /// </summary>
-    private static string botLevelToken;
-
-    /// <summary>
-    /// Сервис для регистрации ивентов и подключения к слаку.
-    /// </summary>
-    private static ISlackServiceProvider slackService;
-
-    /// <summary>
-    /// Клиент для работы со слаком.
-    /// </summary>
-    private static ISlackApiClient slackApi;
-
-    /// <summary>
-    /// Callback id shortcut команды.
-    /// </summary>
-    private static string shortcutCallbackID;
-
-    /// <summary>
-    /// Путь куда будет скачиваться тред.
-    /// </summary>
-    private static string pathToDownloadDirectory;
+    private static IApiClient mattermostApi;
 
     /// <summary>
     /// Информация о всех каналах.
     /// </summary>
-    private static readonly List<SlackChannelInfo> SlackChannelsInfo = new List<SlackChannelInfo>();
+    private static readonly List<ChannelInfo> ChannelsInfo = new List<ChannelInfo>();
 
     /// <summary>
     /// Список из task`ов, окончание которых нужно дождаться
     /// </summary>
     private static readonly List<Task> tasks = new List<Task>();
 
-
     /// <summary>
-    /// ID бота.
+    /// ID пользователя бота.
     /// </summary>
-    private static string botID;
+    private static string botUserID;
 
     /// <summary>
     /// Действие, которое надо совершить над запиненным сообщением.
@@ -178,14 +145,12 @@ namespace SlackBot
           var autoPinNewMessage = bool.Parse(config.GetSection($"Channels:{i}:AutoPinNewMessage").Value);
           var welcomeMessage = config.GetSection($"Channels:{i}:WelcomeMessage").Value;
 
-          SlackChannelsInfo.Add(new SlackChannelInfo(channelID, daysBeforeWarning, daysBeforeUnpining, autoPinNewMessage, welcomeMessage));
+          ChannelsInfo.Add(new ChannelInfo(channelID, daysBeforeWarning, daysBeforeUnpining, autoPinNewMessage, welcomeMessage));
           i++;
         }
-        shortcutCallbackID = config["ShortcutCallbackID"];
-        botToken = config["BotToken"];
-        pathToDownloadDirectory = config["PathToDownloadDirectory"];
-        botID = config["BotID"];
-        botLevelToken = config["BotLevelToken"];
+        MattermostUri = config["MattermostUri"];
+        accessToken = config["AccessToken"];
+        botUserID = config["BotUserID"];
       }
       catch (Exception ex)
       {
@@ -194,61 +159,19 @@ namespace SlackBot
       }
     }
 
-    private static void ConnectToSlack()
-    {
-      var webProxy = new WebProxy();
-      slackApi = (SlackApiClient)slackService.GetApiClient();
-      webProxy.UseDefaultCredentials = true;
-      try
-      {
-        client = new HttpClient(new HttpClientHandler() { Proxy = webProxy });
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", botToken);
-      }
-      catch (Exception ex)
-      {
-        Console.WriteLine($"Ошибка при подключении к slack: {ex.Message}");
-        throw;
-      }
-    }
-
-    private static async void ConfigureSlackService()
-    {
-      var httpClient = new HttpClient(new HttpClientHandler
-      {
-        Proxy = new WebProxy { UseDefaultCredentials = true, },
-      });
-      var jsonSettings = Default.JsonSettings(Default.SlackTypeResolver(Default.AssembliesContainingSlackTypes));
-
-      slackService = new SlackServiceBuilder()
-        .UseHttp(p => Default.Http(jsonSettings, () => httpClient))
-        .UseJsonSettings(p => jsonSettings)
-        .UseApiToken(botToken)
-        .UseAppLevelToken(botLevelToken)
-        .RegisterMessageShortcutHandler(shortcutCallbackID, ctx =>
-        {
-          var slackApi = ctx.ServiceProvider.GetApiClient();
-          return new DownloadHandler(slackApi, new LocalDownloader(botToken, slackApi, pathToDownloadDirectory));
-        })
-        .RegisterEventHandler(p =>
-        {
-          var slackApi = p.ServiceProvider.GetApiClient();
-          return new AutoPinMessageHandler(slackApi, SlackChannelsInfo);
-        });
-      await slackService.GetSocketModeClient().Connect();
-    }
-
     public static void Main()
     {
+      Console.WriteLine("Работа бота начата.");
+      using CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
       try
       {
-        Console.WriteLine("Работа бота начата.");
-
         ReadConfig();
-        ConfigureSlackService();
-        ConnectToSlack();
-        while(true)
+        mattermostApi = new MattermostApiClientBuilder(MattermostUri, accessToken)
+          .RegisterNewPostEventHandler(m => NewPostEventHandler(m))
+          .Connect(cancellationTokenSource.Token);
+        while (true)
         {
-          foreach(var channelInfo in SlackChannelsInfo)
+          foreach(var channelInfo in ChannelsInfo)
           {
             tasks.Add(Task.Run(() => ProcessPinsList(channelInfo)));
           }
@@ -258,45 +181,67 @@ namespace SlackBot
       }
       catch
       {
+        cancellationTokenSource.Cancel();
         Console.WriteLine("Работа бота завершилась из-за ошибок.");
       }
     }
 
     /// <summary>
-    /// Обработать список запиненных сообщений.
+    /// Обработчик события появления на канале нового сообщения.
     /// </summary>
-    private static void ProcessPinsList(SlackChannelInfo channelInfo)
+    /// <param name="messageEventInfo">Информация о событии.</param>
+    private static void NewPostEventHandler(MessageEventInfo messageEventInfo)
+    {
+      if (messageEventInfo.rootID == "")
+      {
+        foreach (var channelInfo in ChannelsInfo.Where(info => info.ChannelID == messageEventInfo.channelID))
+        {
+          if (!string.IsNullOrEmpty(channelInfo.WelcomeMessage))
+            mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, messageEventInfo.userID, channelInfo.WelcomeMessage);
+
+          if (channelInfo.AutoPinNewMessage)
+            mattermostApi.PinMessage(messageEventInfo.id);
+
+          break;
+        }
+      }
+    }
+
+      /// <summary>
+      /// Обработать список запиненных сообщений.
+      /// </summary>
+      private static void ProcessPinsList(ChannelInfo channelInfo)
     {
       try
       {
-        var list = slackApi.Pins.List(channelInfo.ChannelID).Result.OfType<PinnedMessage>();
-        var oldMessageTSList = GetOldMessageList(list, channelInfo);
+        var pinnedMessages = mattermostApi.GetPinnedMessages(channelInfo.ChannelID);
+        var oldMessageTSList = GetOldMessageList(pinnedMessages, channelInfo);
         ReplyMessageInOldThreads(oldMessageTSList, channelInfo);
       }
-      catch(Exception ex)
+      catch (Exception ex)
       {
         Console.WriteLine($"Обработка сообщений завершилась с ошибкой: {ex.Message}");
         throw;
       }
     }
-    
+
     /// <summary>
     /// Отправить сообщение в тред.
     /// </summary>
     /// <param name="messageInfos">Список запиненных сообщений.</param>
-    private static void ReplyMessageInOldThreads(List<MessageInfo> messageInfos, SlackChannelInfo channelInfo)
+    private static void ReplyMessageInOldThreads(List<MessageInfo> messageInfos, ChannelInfo channelInfo)
     {
-      foreach (MessageInfo messageData in messageInfos)
+      foreach (MessageInfo messageInfo in messageInfos)
       {
-        if (messageData.action == MessageAction.NeedWarning)
+        if (messageInfo.action == MessageAction.NeedWarning)
         {
-          SendMessage(String.Format(WarningTextMessage, channelInfo.DaysBeforeWarning), messageData.timeStamp, channelInfo);
+          SendMessage(String.Format(WarningTextMessage, channelInfo.DaysBeforeWarning), messageInfo.id, channelInfo);
         }
-        else if (messageData.action == MessageAction.NeedUnpin)
+        else if (messageInfo.action == MessageAction.NeedUnpin)
         {
-          SendMessage(UnpiningTextMessage, messageData.timeStamp, channelInfo);
-          AddEmoji(messageData.timeStamp, channelInfo);
-          UnpinMessage(messageData.timeStamp, channelInfo);
+          SendMessage(UnpiningTextMessage, messageInfo.id, channelInfo);
+          AddEmoji(messageInfo.id);
+          UnpinMessage(messageInfo.id);
         }
       }
     }
@@ -304,10 +249,10 @@ namespace SlackBot
     /// <summary>
     /// Открепить сообщение.
     /// </summary>
-    /// <param name="messageTimestamp">Отметка времени закрепленного сообщения.</param>
-    private static async void UnpinMessage(string messageTimestamp, SlackChannelInfo channelInfo)
+    /// <param name="messageID">ИД закрепленного сообщения.</param>
+    private static void UnpinMessage(string messageID)
     {
-      await slackApi.Pins.RemoveMessage(channelInfo.ChannelID, messageTimestamp);
+      mattermostApi.UnpinMessage(messageID);
     }
 
     /// <summary>
@@ -315,19 +260,19 @@ namespace SlackBot
     /// </summary>
     /// <param name="pinedMessages">Полный список закрепленных сообщений.</param>
     /// <returns>Список закрепленных сообщений, с момента создания которых прошло больше DaysCountBeforeWarning дней.</returns>
-    private static List<MessageInfo> GetOldMessageList(IEnumerable<PinnedMessage> pinedMessages, SlackChannelInfo channelInfo)
+    private static List<MessageInfo> GetOldMessageList(Message[] pinedMessages, ChannelInfo channelInfo)
     {
       var oldPinedMessageList = new List<MessageInfo>();
       if (pinedMessages != null)
       {
         foreach (var pinedMessage in pinedMessages)
         {
-          if (IsOldPinedMessage(pinedMessage.Message.Ts, Math.Min(channelInfo.DaysBeforeWarning, channelInfo.DaysBeforeUnpining)))
+          if (IsOldPinedMessage(pinedMessage.dateTime, Math.Min(channelInfo.DaysBeforeWarning, channelInfo.DaysBeforeUnpining)))
           {
-            MessageAction msgAction = Task.Run(() => GetPinedMessageAction(pinedMessage.Message.Ts, channelInfo)).Result;
+            MessageAction msgAction = Task.Run(() => GetPinedMessageAction(pinedMessage.messageId, channelInfo)).Result;
             oldPinedMessageList.Add(new MessageInfo()
             {
-              timeStamp = pinedMessage.Message.Ts,
+              id = pinedMessage.messageId,
               action = msgAction
             });
           }
@@ -339,45 +284,41 @@ namespace SlackBot
     /// <summary>
     /// Определить действие, которое необходимо с закрепленным сообщением.
     /// </summary>
-    /// <param name="messageTimestamp">Отметка времени запиненного сообщения.</param>
+    /// <param name="messageId">ИД запиненного сообщения.</param>
     /// <returns>Действие, которое необходимо с закрепленным сообщением.</returns>
-    private static MessageAction GetPinedMessageAction(string messageTimestamp, SlackChannelInfo channelInfo)
+    private static MessageAction GetPinedMessageAction(string messageId, ChannelInfo channelInfo) 
     {
-      var responseObject = slackApi.Conversations.Replies(channelInfo.ChannelID, messageTimestamp).Result;
-      var latest_message_number = responseObject.Messages.Count - 1;
-      return DefineActionByDateAndAuthorOfMessage(responseObject.Messages[latest_message_number].Ts,
-        responseObject.Messages[latest_message_number].User, responseObject.Messages[latest_message_number].Text, channelInfo
-        );
+      var messages = mattermostApi.GetThreadMessages(messageId);
+      var latest_message = messages.OrderBy(m => m.dateTime).Last();
+      return DefineActionByDateAndAuthorOfMessage(latest_message.dateTime, latest_message.userId, channelInfo );
     }
 
     /// <summary>
     /// Добавить эмодзи на открепляемое сообщение.
     /// </summary>
     /// <param name="messageTimestamp">Отметка времени открепляемого сообщения.</param>
-    private static void AddEmoji(string messageTimestamp, SlackChannelInfo channelInfo)
+    private static void AddEmoji(string messageID)
     {
-      slackApi.Reactions.AddToMessage(emojiName, channelInfo.ChannelID, messageTimestamp);
+      mattermostApi.AddReaction(botUserID, messageID, emojiName);
     }
 
     /// <summary>
     /// Определить действие над закрепленным сообщением по дате и автору последнего ответа.
     /// </summary>
-    /// <param name="messageTimeStamp">Отметка времени последнего сообщения из треда.</param>
+    /// <param name="messageDateTime">Отметка времени последнего сообщения из треда.</param>
     /// <param name="userID">ID автора последнего сообщения из треда. </param>
-    /// <param name="text">Текст сообщения, с которого начинаеся тред</param>
-    /// <param name="channelInfo">Информация о канале, в котором нахоидтся тред</param>
+    /// <param name="channelInfo">Информация о канале, в котором нахоидтся тред.</param>
     /// <returns>Действие над закрепленным сообщением.</returns>
-    private static MessageAction DefineActionByDateAndAuthorOfMessage(string messageTimeStamp, string userID,
-      string text, SlackChannelInfo channelInfo)
+    private static MessageAction DefineActionByDateAndAuthorOfMessage(DateTime messageDateTime, string userID, ChannelInfo channelInfo)
     {
-      if (messageTimeStamp != null)      
+      if (messageDateTime != null)      
       {
-        if ((userID != botID) & (IsOldPinedMessage(messageTimeStamp, channelInfo.DaysBeforeWarning)))
+        if ((userID != botUserID) & (IsOldPinedMessage(messageDateTime, channelInfo.DaysBeforeWarning)))
         {
           return MessageAction.NeedWarning;
         }
         else
-        if ((userID == botID) & (IsOldPinedMessage(messageTimeStamp, channelInfo.DaysBeforeUnpining)))
+        if ((userID == botUserID) & (IsOldPinedMessage(messageDateTime, channelInfo.DaysBeforeUnpining)))
         {
           return MessageAction.NeedUnpin;
         }
@@ -388,128 +329,25 @@ namespace SlackBot
     /// <summary>
     /// Определить, является ли закрепленное сообщение старым.
     /// </summary>
-    /// <param name="messageTimeStamp">Отметка времени сообщения.</param>
+    /// <param name="messageDateTime">Отметка времени сообщения.</param>
     /// <param name="DayCount">Период (в днях), по прошествию которого следует считать сообщение старым.</param>
     /// <returns>Признак, является ли закрепленное сообщение старым.</returns>
-    private static bool IsOldPinedMessage(string messageTimeStamp, int DayCount)
+    private static bool IsOldPinedMessage(DateTime messageDateTime, int DayCount)
     {
-      double timeStampWithoutMicroSeconds =
-          Convert.ToDouble(messageTimeStamp.Substring(0, messageTimeStamp.IndexOf('.')));
-      DateTime messageDate = ConvertUnixTimeStampToDateTime(timeStampWithoutMicroSeconds);
-      return messageDate.AddDays(DayCount) < DateTime.Now;
-    }
-
-    /// <summary>
-    /// Конвертировать отметку времени в тип DateTime.
-    /// </summary>
-    /// <param name="unixTimeStamp">Отметка времени.</param>
-    /// <returns>Дата и время.</returns>
-    public static DateTime ConvertUnixTimeStampToDateTime(double unixTimeStamp)
-    {
-      var dateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0, System.DateTimeKind.Utc);
-      dateTime = dateTime.AddSeconds(unixTimeStamp).ToLocalTime();
-      return dateTime;
+      return messageDateTime.AddDays(DayCount) < DateTime.UtcNow; 
     }
 
     /// <summary>
     /// Отправить сообщение в тред закрепленного сообщения.
     /// </summary>
     /// <param name="textMessage">Текст отправляемого сообщения.</param>
-    /// <param name="messageTimeStamp">Отметка времени закрепленного сообщения.</param>
-    private static void SendMessage(string textMessage, string messageTimeStamp, SlackChannelInfo channelInfo)
+    /// <param name="messageId">ИД закрепленного сообщения.</param>
+    /// <param name="channelInfo">Информация о канале, в котором нахоидтся тред.</param>
+    private static void SendMessage(string textMessage, string messageId, ChannelInfo channelInfo)
     {
-      slackApi.Chat.PostMessage(new Message()
-      {
-        Channel = channelInfo.ChannelID,
-        Text = textMessage,
-        ThreadTs = messageTimeStamp
-      });
+      mattermostApi.PostMessage(channelInfo.ChannelID, textMessage, messageId);
     }
     #endregion
   }
-  static class GetThreadExtension
-  {
-    /// <summary>
-    /// Получить весь тред.
-    /// </summary>
-    /// <param name="messageTimestamp">Время первого сообщения треда.</param>
-    /// <param name="channel">Канал треда.</param>
-    /// <returns>Все сообщения треда.</returns>
-    public static ThreadDTO GetThread(this IConversationsApi conversations, string messageTimestamp, string channel)
-    {
-      var messages = conversations.Replies(channel, messageTimestamp, limit: 50).Result.Messages;
-      List<MessageDTO> messageDTO = new List<MessageDTO>(messages.Count);
-      ThreadDTO thread = new ThreadDTO();
-      foreach (var message in messages)
-      {
-        messageDTO.Add(new MessageDTO
-        {
-          Text = message.Text,
-          Ts = message.Ts,
-          User = message.User,
-          Files = GetFiles(new List<FileDTO>())
-        });
 
-        List<FileDTO> GetFiles(List<FileDTO> list)
-        {
-          if (message.Files.Count == 0) return null;
-          foreach (var file in message.Files)
-          {
-            list.Add(new FileDTO
-            {
-              Name = file.Name,
-              UrlPrivateDownload = file.UrlPrivateDownload
-            });
-          }
-          return list;
-        }
-      }
-      thread.Messages = messageDTO;
-      return thread;
-    }
-
-
-  }
-
-  public static class PostEphemeralMessageToUserExtension
-  {
-    /// <summary>
-    /// Отправляет пользователю сообщение типа Only visible to you.
-    /// </summary>
-    /// <param name="message">Сообщение для отправки.</param>
-    /// <param name="userId">Id пользователя, которому нужно отправить сообщение.</param>
-    /// <param name="channelId">Id чата для отправки сообщения.</param>
-    public static void PostEphemeralMessageToUser(this IChatApi chat, string text, string userId, string channelId)
-    {
-      Message message = new Message
-      {
-        Text = text,
-        Channel = channelId
-      };
-      chat.PostEphemeral(userId, message);
-    }
-  }
-
-  static class GetUserNameByIdExtension
-  {
-    /// <summary>
-    /// Получить ник пользователя по его id.
-    /// </summary>
-    /// <param name="userId"></param>
-    /// <returns>Ник пользователя.</returns>
-    public static UserDTO GetUserNameById(this IUsersApi users, string userId)
-    {
-      var user = users.Info(userId).Result;
-      DTOs.User DTOsUser = new DTOs.User
-      {
-        Name = user.Name,
-        RealName = user.RealName
-      };
-      UserDTO userDTO = new UserDTO
-      {
-        User = DTOsUser
-      };
-      return userDTO;
-    }
-  }
 }
