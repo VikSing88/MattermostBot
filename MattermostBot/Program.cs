@@ -86,6 +86,11 @@ namespace MattermostBot
     private static string botUserID;
 
     /// <summary>
+    /// Время сна бота в милисекундах.
+    /// </summary>
+    private static string sleepTimeDuration;
+
+    /// <summary>
     /// Действие, которое надо совершить над запиненным сообщением.
     /// </summary>
     private enum MessageAction
@@ -151,6 +156,7 @@ namespace MattermostBot
         MattermostUri = config["MattermostUri"];
         accessToken = config["AccessToken"];
         botUserID = config["BotUserID"];
+        sleepTimeDuration = config["SleepTimeDuration"];
       }
       catch (Exception ex)
       {
@@ -176,7 +182,7 @@ namespace MattermostBot
             tasks.Add(Task.Run(() => ProcessPinsList(channelInfo)));
           }
           Task.WaitAll(tasks.ToArray());
-          Thread.Sleep(3600000);
+          Thread.Sleep(Convert.ToInt32(sleepTimeDuration));
         }
       }
       catch
