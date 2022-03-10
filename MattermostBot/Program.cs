@@ -182,7 +182,7 @@ namespace MattermostBot
             tasks.Add(Task.Run(() => ProcessPinsList(channelInfo)));
           }
           Task.WaitAll(tasks.ToArray());
-          Thread.Sleep(Convert.ToInt32(sleepTimeDuration));
+          Thread.Sleep(TryConvertStringToInt("sleepTimeDuration", sleepTimeDuration, 3600000));
         }
       }
       catch
