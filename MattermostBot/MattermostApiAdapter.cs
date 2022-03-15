@@ -89,38 +89,56 @@ namespace ApiAdapter
       Post.CreateEphemeral(api, userID, channelID, message);
     }
 
-    async public void StartReceivingServerMessages(Action<MessageEventInfo> newPostEventHandler, CancellationToken cancellationToken)
+    async public void StartReceivingServerMessages(Action<MessageEventInfo> newPostEventHandler, Action<string> errorEventHandler, CancellationToken cancellationToken)
     {
       using var webSocket = new ClientWebSocket();      
       webSocket.Options.SetRequestHeader("Authorization", $"Bearer {api.Settings.AccessToken}");
       await webSocket.ConnectAsync(new Uri(GetWebSocketUri()), default);
-      await StartNewPostEventHandling(webSocket, newPostEventHandler, cancellationToken);
+      await StartNewPostEventHandling(webSocket, newPostEventHandler, errorEventHandler, cancellationToken);
     }
 
     /// <summary>
     /// Начать обработку событий поступления новых сообщений.
     /// </summary>
     /// <param name="webSocket">Веб-сокет.</param>
-    /// <param name="eventHandler">Обработчик событий поступления новых сообщений.</param>
+    /// <param name="newPostEventHandler">Обработчик событий поступления новых сообщений.</param>
+    /// <param name="errorEventHandler">Обработчик ошибок.</param>
     /// <param name="cancellationToken">Токен отмены.</param>
     /// <returns>Таска старта обработки событий поступления новых сообщений.</returns>
-    private Task StartNewPostEventHandling(ClientWebSocket webSocket, Action<MessageEventInfo> eventHandler, CancellationToken cancellationToken)
+    private Task StartNewPostEventHandling(ClientWebSocket webSocket, Action<MessageEventInfo> newPostEventHandler, Action<string> errorEventHandler, 
+      CancellationToken cancellationToken)
     {
       return Task.Run(
         async () =>
         {
-          var buffer = WebSocket.CreateClientBuffer(1000, 1000);
+          const int maxBufferSize = 1000;
+          const string errorMessagePattern = "При обработке сообщения возникла ошибка: {0}. Текст сообщения: {1}.";
+
+          var buffer = WebSocket.CreateClientBuffer(maxBufferSize, maxBufferSize); 
+          string eventMessage = string.Empty;
           while (!cancellationToken.IsCancellationRequested)
           {
             var responce = await webSocket.ReceiveAsync(buffer, cancellationToken);
-            var eventMessage = Encoding.UTF8.GetString(buffer.Slice(0, responce.Count));
-            ServerWebSocketMessage message = JsonConvert.DeserializeObject<ServerWebSocketMessage>(eventMessage);
-            if (message.@event == "posted")
-            {
-              var postData = JsonConvert.DeserializeObject<PostData>(message.data.post);
-              eventHandler(
-                new MessageEventInfo() { id = postData.id, message = postData.message, channelID = postData.channel_id, userID = postData.user_id, rootID = postData.root_id });
-            }
+            eventMessage += Encoding.UTF8.GetString(buffer.Slice(0, responce.Count));
+            if (responce.EndOfMessage)
+              try
+              {
+                ServerWebSocketMessage message = JsonConvert.DeserializeObject<ServerWebSocketMessage>(eventMessage);
+                if (message.@event == "posted")
+                {
+                  var postData = JsonConvert.DeserializeObject<PostData>(message.data.post);
+                  newPostEventHandler(
+                    new MessageEventInfo() { id = postData.id, message = postData.message, channelID = postData.channel_id, userID = postData.user_id, rootID = postData.root_id });
+                }
+              }
+              catch (Exception ex)
+              {
+                errorEventHandler(string.Format(errorMessagePattern, ex.Message, eventMessage));
+              }
+              finally 
+              {
+                eventMessage = string.Empty;
+              }
           }
         }, cancellationToken);
     }
@@ -178,9 +196,20 @@ namespace ApiAdapter
     /// </summary>
     private Action<MessageEventInfo> newPostEventHandler;
 
+    /// <summary>
+    /// Обработчик ошибок.
+    /// </summary>
+    private Action<string> errorEventHandler;
+
     public IApiClientBuilder RegisterNewPostEventHandler(Action<MessageEventInfo> eventHandler)
     {
       newPostEventHandler = eventHandler;
+      return this;
+    }
+
+    public IApiClientBuilder RegisterErrorEventHandler(Action<string> eventEventHandler)
+    {
+      errorEventHandler = eventEventHandler;
       return this;
     }
 
@@ -188,7 +217,7 @@ namespace ApiAdapter
     {
       if (newPostEventHandler != null)
       {
-        apiClient.StartReceivingServerMessages(newPostEventHandler, cancellationToken);
+        apiClient.StartReceivingServerMessages(newPostEventHandler, errorEventHandler, cancellationToken);
       }
       return apiClient;
     }
