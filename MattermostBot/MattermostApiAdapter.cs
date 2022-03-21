@@ -142,7 +142,6 @@ namespace ApiAdapter
                   newPostEventHandler(
                     new MessageEventInfo() { id = postData.id, message = postData.message, channelID = postData.channel_id, userID = postData.user_id, rootID = postData.root_id });
                 }
-                Console.WriteLine(messageText);
               }
               catch (Exception ex)
               {
