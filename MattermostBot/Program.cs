@@ -23,6 +23,11 @@ namespace MattermostBot
     /// </summary>
     const int daysBeforeUnpiningByDefault = 3;
 
+    ///<summary>
+    /// Период проверки канала в минутах по умолчанию.
+    ///</summary>
+    const int channelCheckPeriodInMinutesbyDefault = 60;
+
     /// <summary>
     /// Текст предупреждения.
     /// </summary>
@@ -86,9 +91,14 @@ namespace MattermostBot
     private static string botUserID;
 
     /// <summary>
-    /// Время сна бота в милисекундах.
+    /// Период проверки канала в миллисекундах.
     /// </summary>
-    private static string sleepTimeDuration;
+    private static int ChannelCheckPeriodInMilliseconds;
+
+    /// <summary>
+    /// Период проверки канала в минутах.
+    /// </summary>
+    private static int ChannelCheckPeriodInMinutes;
 
     /// <summary>
     /// Действие, которое надо совершить над запиненным сообщением.
@@ -156,7 +166,9 @@ namespace MattermostBot
         MattermostUri = config["MattermostUri"];
         accessToken = config["AccessToken"];
         botUserID = config["BotUserID"];
-        sleepTimeDuration = config["SleepTimeDuration"];
+        ChannelCheckPeriodInMinutes = TryConvertStringToInt("ChannelCheckPeriodInMinutes", config["ChannelCheckPeriodInMinutes"],
+            channelCheckPeriodInMinutesbyDefault);;
+        ChannelCheckPeriodInMilliseconds = ChannelCheckPeriodInMinutes * 60000;
       }
       catch (Exception ex)
       {
@@ -182,7 +194,7 @@ namespace MattermostBot
             tasks.Add(Task.Run(() => ProcessPinsList(channelInfo)));
           }
           Task.WaitAll(tasks.ToArray());
-          Thread.Sleep(TryConvertStringToInt("sleepTimeDuration", sleepTimeDuration, 3600000));
+          Thread.Sleep(ChannelCheckPeriodInMilliseconds);
         }
       }
       catch
