@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
@@ -111,34 +112,43 @@ namespace ApiAdapter
       return Task.Run(
         async () =>
         {
-          const int maxBufferSize = 1000;
+          const int maxBufferSize = 64000;
           const string errorMessagePattern = "При обработке сообщения возникла ошибка: {0}. Текст сообщения: {1}.";
 
-          var buffer = WebSocket.CreateClientBuffer(maxBufferSize, maxBufferSize); 
-          string eventMessage = string.Empty;
+          var buffer = WebSocket.CreateClientBuffer(maxBufferSize, maxBufferSize);
           while (!cancellationToken.IsCancellationRequested)
-          {
-            var responce = await webSocket.ReceiveAsync(buffer, cancellationToken);
-            eventMessage += Encoding.UTF8.GetString(buffer.Slice(0, responce.Count));
-            if (responce.EndOfMessage)
+          { 
+            using var memoryStream = new MemoryStream();
+            WebSocketReceiveResult responce;
+            do
+            {
+              responce = await webSocket.ReceiveAsync(buffer, cancellationToken);
+              memoryStream.Write(buffer.Array, buffer.Offset, responce.Count);
+            }
+            while (!responce.EndOfMessage);
+
+            memoryStream.Seek(0, SeekOrigin.Begin);
+
+            if (responce.MessageType == WebSocketMessageType.Text)
+            {
+              using var streamReader = new StreamReader(memoryStream, Encoding.UTF8);
+              var messageText = streamReader.ReadToEnd();
               try
               {
-                ServerWebSocketMessage message = JsonConvert.DeserializeObject<ServerWebSocketMessage>(eventMessage);
+                ServerWebSocketMessage message = JsonConvert.DeserializeObject<ServerWebSocketMessage>(messageText);
                 if (message.@event == "posted")
                 {
                   var postData = JsonConvert.DeserializeObject<PostData>(message.data.post);
                   newPostEventHandler(
                     new MessageEventInfo() { id = postData.id, message = postData.message, channelID = postData.channel_id, userID = postData.user_id, rootID = postData.root_id });
                 }
+                Console.WriteLine(messageText);
               }
               catch (Exception ex)
               {
-                errorEventHandler(string.Format(errorMessagePattern, ex.Message, eventMessage));
+                errorEventHandler(string.Format(errorMessagePattern, ex.Message, messageText));
               }
-              finally 
-              {
-                eventMessage = string.Empty;
-              }
+            }
           }
         }, cancellationToken);
     }
