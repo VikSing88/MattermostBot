@@ -16,17 +16,17 @@ namespace MattermostBot
     /// <summary>
     /// Количество дней до предупреждения по умолчанию.
     /// </summary>
-    const int daysBeforeWarningByDefault = 7;
+    const int DaysBeforeWarningByDefault = 7;
 
     /// <summary>
     /// Количество дней до отпинивания сообщения по умолчанию.
     /// </summary>
-    const int daysBeforeUnpiningByDefault = 3;
+    const int DaysBeforeUnpiningByDefault = 3;
 
     ///<summary>
     /// Период проверки канала в минутах по умолчанию.
     ///</summary>
-    const int channelCheckPeriodInMinutesbyDefault = 60;
+    const int ChannelCheckPeriodInMinutesbyDefault = 60;
 
     /// <summary>
     /// Текст предупреждения.
@@ -41,7 +41,7 @@ namespace MattermostBot
     /// <summary>
     /// Название эмодзи. 
     /// </summary>
-    const string emojiName = "no_entry_sign";       
+    const string EmojiName = "no_entry_sign";       
 
     #endregion
 
@@ -63,7 +63,7 @@ namespace MattermostBot
     /// <summary>
     /// Uri сервера Mattermost.
     /// </summary>
-    private static string MattermostUri;
+    private static string mattermostUri;
 
     /// <summary>
     /// Токен личного доступа бота.
@@ -78,7 +78,7 @@ namespace MattermostBot
     /// <summary>
     /// Информация о всех каналах.
     /// </summary>
-    private static readonly List<ChannelInfo> ChannelsInfo = new List<ChannelInfo>();
+    private static readonly List<ChannelInfo> channelsInfo = new List<ChannelInfo>();
 
     /// <summary>
     /// Список из task`ов, окончание которых нужно дождаться
@@ -91,14 +91,9 @@ namespace MattermostBot
     private static string botUserID;
 
     /// <summary>
-    /// Период проверки канала в миллисекундах.
-    /// </summary>
-    private static int ChannelCheckPeriodInMilliseconds;
-
-    /// <summary>
     /// Период проверки канала в минутах.
     /// </summary>
-    private static int ChannelCheckPeriodInMinutes;
+    private static int channelCheckPeriodInMinutes;
 
     /// <summary>
     /// Действие, которое надо совершить над запиненным сообщением.
@@ -154,21 +149,20 @@ namespace MattermostBot
         {
           var channelID = config.GetSection($"Channels:{i}:ChannelID").Value;
           var daysBeforeWarning = TryConvertStringToInt("daysBeforeWarning", config.GetSection($"Channels:{i}:DaysBeforeWarning").Value,
-            daysBeforeWarningByDefault);
+            DaysBeforeWarningByDefault);
           var daysBeforeUnpining = TryConvertStringToInt("daysBeforeUnpining", config.GetSection($"Channels:{i}:DaysBeforeUnpining").Value,
-            daysBeforeUnpiningByDefault);
+            DaysBeforeUnpiningByDefault);
           var autoPinNewMessage = bool.Parse(config.GetSection($"Channels:{i}:AutoPinNewMessage").Value);
           var welcomeMessage = config.GetSection($"Channels:{i}:WelcomeMessage").Value;
 
-          ChannelsInfo.Add(new ChannelInfo(channelID, daysBeforeWarning, daysBeforeUnpining, autoPinNewMessage, welcomeMessage));
+          channelsInfo.Add(new ChannelInfo(channelID, daysBeforeWarning, daysBeforeUnpining, autoPinNewMessage, welcomeMessage));
           i++;
         }
-        MattermostUri = config["MattermostUri"];
+        mattermostUri = config["MattermostUri"];
         accessToken = config["AccessToken"];
         botUserID = config["BotUserID"];
-        ChannelCheckPeriodInMinutes = TryConvertStringToInt("ChannelCheckPeriodInMinutes", config["ChannelCheckPeriodInMinutes"],
-            channelCheckPeriodInMinutesbyDefault);;
-        ChannelCheckPeriodInMilliseconds = ChannelCheckPeriodInMinutes * 60000;
+        channelCheckPeriodInMinutes = TryConvertStringToInt("ChannelCheckPeriodInMinutes", config["ChannelCheckPeriodInMinutes"],
+            ChannelCheckPeriodInMinutesbyDefault);
       }
       catch (Exception ex)
       {
@@ -184,17 +178,17 @@ namespace MattermostBot
       try
       {
         ReadConfig();
-        mattermostApi = new MattermostApiClientBuilder(MattermostUri, accessToken)
+        mattermostApi = new MattermostApiClientBuilder(mattermostUri, accessToken)
           .RegisterNewPostEventHandler(m => NewPostEventHandler(m))
           .Connect(cancellationTokenSource.Token);
         while (true)
         {
-          foreach(var channelInfo in ChannelsInfo)
+          foreach(var channelInfo in channelsInfo)
           {
             tasks.Add(Task.Run(() => ProcessPinsList(channelInfo)));
           }
           Task.WaitAll(tasks.ToArray());
-          Thread.Sleep(ChannelCheckPeriodInMilliseconds);
+          Thread.Sleep(TimeSpan.FromMinutes(channelCheckPeriodInMinutes));
         }
       }
       catch
@@ -212,7 +206,7 @@ namespace MattermostBot
     {
       if (messageEventInfo.rootID == "")
       {
-        foreach (var channelInfo in ChannelsInfo.Where(info => info.ChannelID == messageEventInfo.channelID))
+        foreach (var channelInfo in channelsInfo.Where(info => info.ChannelID == messageEventInfo.channelID))
         {
           if (!string.IsNullOrEmpty(channelInfo.WelcomeMessage))
             mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, messageEventInfo.userID, channelInfo.WelcomeMessage);
@@ -317,7 +311,7 @@ namespace MattermostBot
     /// <param name="messageTimestamp">Отметка времени открепляемого сообщения.</param>
     private static void AddEmoji(string messageID)
     {
-      mattermostApi.AddReaction(botUserID, messageID, emojiName);
+      mattermostApi.AddReaction(botUserID, messageID, EmojiName);
     }
 
     /// <summary>
