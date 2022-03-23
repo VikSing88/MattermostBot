@@ -115,8 +115,10 @@ namespace ApiClient
     /// Стартовать получение сообщений с сервера.
     /// </summary>
     /// <param name="newPostEventHandler">Обработчик событий поступления новых сообщений.</param>
+    /// <param name="errorEventHandler">Обработчик ошибок.</param>
     /// <param name="cancellationToken">Токен отмены.</param>
-    public void StartReceivingServerMessages(Action<MessageEventInfo> newPostEventHandler, CancellationToken cancellationToken);
+    public void StartReceivingServerMessages(Action<MessageEventInfo> newPostEventHandler, Action<string> errorEventHandler, 
+      CancellationToken cancellationToken);
   }
 
   /// <summary>
@@ -127,9 +129,16 @@ namespace ApiClient
     /// <summary>
     /// Зарегистрировать обработчик события появления на канале нового сообщения.
     /// </summary>
-    /// <param name="eventHandler">Обработчик события.</param>
+    /// <param name="newPostEventHandler">Обработчик события.</param>
     /// <returns>Экземпляр <see cref="IApiClientBuilder"/>.</returns>
-    public IApiClientBuilder RegisterNewPostEventHandler(Action<MessageEventInfo> eventHandler);
+    public IApiClientBuilder RegisterNewPostEventHandler(Action<MessageEventInfo> newPostEventHandler);
+
+    /// <summary>
+    /// Зарегистрировать обработчик ошибок.
+    /// </summary>
+    /// <param name="errorEventHandler">Обработчик ошибок.</param>
+    /// <returns>Экземпляр <see cref="IApiClientBuilder"/>.</returns>
+    public IApiClientBuilder RegisterErrorEventHandler(Action<string> errorEventHandler);
 
     /// <summary>
     /// Подключиться к серверу.

@@ -168,6 +168,7 @@ namespace MattermostBot
         ReadConfig();
         mattermostApi = new MattermostApiClientBuilder(MattermostUri, accessToken)
           .RegisterNewPostEventHandler(m => NewPostEventHandler(m))
+          .RegisterErrorEventHandler(e => Console.WriteLine(e))
           .Connect(cancellationTokenSource.Token);
         while (true)
         {
