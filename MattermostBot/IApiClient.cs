@@ -76,6 +76,14 @@ namespace ApiClient
     /// <returns>Список запиненных сообщений канала.</returns>
     public Message[] GetPinnedMessages(string channelID);
 
+        /// <summary>
+    /// Получить список запиненных сообщений канала c указанной реакцией.
+    /// </summary>
+    /// <param name="channelID">ИД канала.</param>
+    /// <param name="reactionRequest">Запрос для реакции.</param>
+    /// <returns>Список запиненных сообщений канала.</returns>
+    public Message[] GetPinnedMessagesWithReactionRequest(string channelID, string reactionRequest);
+
     /// <summary>
     /// Добавить эмодзи.
     /// </summary>

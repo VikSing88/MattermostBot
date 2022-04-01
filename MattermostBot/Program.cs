@@ -34,6 +34,12 @@ namespace MattermostBot
     const string WarningTextMessage = "Новых сообщений не было уже больше {0} дней. Закрываем консультацию?";
 
     /// <summary>
+    /// Текст приветствия в треде.
+    /// </summary>
+    const string TextMessageForNewTread = "Вас приветствует команда МКДО! \n На ваш вопрос ответят при первой возможности. \n Для оперативной техподдержки при обращении через текущий канал предлагаем убедиться, что функционал относится к продуктам, поддерживаемым командой МКДО. Проверьте, что Вы указали версию системы DIRECTUM (и/или службы DISI) с точностью до номера редакции релиза, и предоставили достаточно информации для последующего анализа и поиска причин наблюдаемого поведения системы. Например, полные логи службы DISI, логи SBRte или служб IS-Builder, трейсы SQL сервера, записи журнала Windows, логи сценариев, и т.д.";
+
+
+    /// <summary>
     /// Текст при отпинивании сообщения.
     /// </summary>
     const string UnpiningTextMessage = "Консультация закрыта.";
@@ -96,6 +102,16 @@ namespace MattermostBot
     private static int channelCheckPeriodInMinutes;
 
     /// <summary>
+    /// Реакция для автоматического отпинивания.
+    /// </summary>
+    private static string reactionRequiest;
+
+    /// <summary>
+    /// Приветственное сообщение в треде консультации.
+    /// </summary>
+    private static bool welcomeThreadMessage;
+
+    /// <summary>
     /// Действие, которое надо совершить над запиненным сообщением.
     /// </summary>
     private enum MessageAction
@@ -154,8 +170,10 @@ namespace MattermostBot
             DaysBeforeUnpiningByDefault);
           var autoPinNewMessage = bool.Parse(config.GetSection($"Channels:{i}:AutoPinNewMessage").Value);
           var welcomeMessage = config.GetSection($"Channels:{i}:WelcomeMessage").Value;
+          welcomeThreadMessage = bool.Parse(config.GetSection($"Channels:{i}:WelcomeThreadMessage").Value);
+          reactionRequiest = config.GetSection($"Channels:{i}:ReactionRequest").Value;
 
-          channelsInfo.Add(new ChannelInfo(channelID, daysBeforeWarning, daysBeforeUnpining, autoPinNewMessage, welcomeMessage));
+          channelsInfo.Add(new ChannelInfo(channelID, daysBeforeWarning, daysBeforeUnpining, autoPinNewMessage, welcomeMessage, reactionRequiest, welcomeThreadMessage));
           i++;
         }
         mattermostUri = config["MattermostUri"];
@@ -213,7 +231,13 @@ namespace MattermostBot
             mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, messageEventInfo.userID, channelInfo.WelcomeMessage);
 
           if (channelInfo.AutoPinNewMessage)
+          {
             mattermostApi.PinMessage(messageEventInfo.id);
+            if (welcomeThreadMessage)
+            {
+              ReplyMessageInNewThreads(messageEventInfo.id, channelInfo);
+            }
+          }
 
           break;
         }
@@ -228,6 +252,11 @@ namespace MattermostBot
       try
       {
         var pinnedMessages = mattermostApi.GetPinnedMessages(channelInfo.ChannelID);
+        if (reactionRequiest != null)
+        {
+          var pinnedWithReactionMessages = mattermostApi.GetPinnedMessagesWithReactionRequest(channelInfo.ChannelID, "\"emoji_name\": \"heavy_check_mark\"");
+          UnpinningMessages(pinnedWithReactionMessages);
+        }
         var oldMessageTSList = GetOldMessageList(pinnedMessages, channelInfo);
         ReplyMessageInOldThreads(oldMessageTSList, channelInfo);
       }
@@ -258,6 +287,28 @@ namespace MattermostBot
         }
       }
     }
+
+    /// <summary>
+    /// Открепить сообщения.
+    /// </summary>
+    /// <param name="messageInfos">Список запиненных сообщений.</param>
+    private static void UnpinningMessages(Message[] messages)
+    {
+      foreach (var message in messages)
+      {
+        UnpinMessage(message.messageId);
+      }
+    }
+
+    /// <summary>
+    /// Отправить сообщение в тред для нового вопроса.
+    /// </summary>
+    /// <param name="messageInfos">Список запиненных сообщений.</param>
+    private static void ReplyMessageInNewThreads(string messageID, ChannelInfo channelInfo)
+    {
+      SendMessage(TextMessageForNewTread, messageID, channelInfo);
+    }
+
 
     /// <summary>
     /// Открепить сообщение.

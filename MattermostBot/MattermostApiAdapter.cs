@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Net.WebSockets;
+using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -55,6 +56,11 @@ namespace ApiAdapter
     public Message[] GetPinnedMessages(string channelID)
     {
       return GetMessagesByRequest(Api.Combine("channels", channelID, "pinned"));
+    }
+
+     public Message[] GetPinnedMessagesWithReactionRequest(string channelID, string reactionRequest)
+    {
+      return GetMessagesByRequestAndReaction(Api.Combine("channels", channelID, "pinned"), reactionRequest);
     }
 
     public void PostMessage(string channelID, string message, string rootId = null)
@@ -174,6 +180,26 @@ namespace ApiAdapter
       postList.List = postList.Convert(j).List;
       return postList.List.Select(p =>
         new Message { messageId = p.id, dateTime = p.create_at ?? DateTime.MinValue, userId = p.user_id }).ToArray();
+    }
+
+    /// <summary>
+    /// Получить список сообщений Mattermost по строке запроса и реакции.
+    /// </summary>
+    /// <param name="request">Запрос.</param>
+    /// <param name="reaction">Реакция.</param>
+    /// <returns>Список сообщений.</returns>
+    private Message[] GetMessagesByRequestAndReaction(string request, string reaction)
+    {
+      JObject j = api.GetAsync(request).Result;
+      PostList postList = j.ConvertToObject<PostList>();
+      postList.List = postList.Convert(j).List;
+      var reactionPath = reaction.Split(new char[] {':'}).First().Trim(new char[] { '\"', '\"' });
+
+      return postList.List.Where(elem => elem.AdditionalData
+              .Any(e => e.Key == "has_reactions" && e.Value.ToString() == "True") && elem.metadata.reactions.Children()
+              .Any(react => react.Any(r => r.Path == reactionPath) && react.ToString() == reaction.ToString()))?
+                  .Select(p =>
+                     new Message { messageId = p.id, dateTime = p.create_at ?? DateTime.MinValue, userId = p.user_id }).ToArray();
     }
 
     public MattermostApiAdapter(string uri, string token)

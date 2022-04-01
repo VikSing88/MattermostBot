@@ -2,13 +2,15 @@
 {
   class ChannelInfo
   {
-    public ChannelInfo(string channelID, int daysBeforeWarning, int daysBeforeUnpining, bool autoPinNewMessage, string welcomeMessage)
+    public ChannelInfo(string channelID, int daysBeforeWarning, int daysBeforeUnpining, bool autoPinNewMessage, string welcomeMessage, string reactionRequest, bool welcomeThreadMessage)
     {
       ChannelID = channelID;
       DaysBeforeWarning = daysBeforeWarning;
       DaysBeforeUnpining = daysBeforeUnpining;
       AutoPinNewMessage = autoPinNewMessage;
       WelcomeMessage = welcomeMessage;
+      ReactionRequest = reactionRequest;
+      WelcomeThreadMessage = welcomeThreadMessage;      
     }
 
     /// <summary>
@@ -31,5 +33,13 @@
     /// Приветственное сообщение
     /// </summary>
     public string WelcomeMessage { get; set; }
+    /// Реакция для автоматического отпинивания
+    /// </summary>
+    public string ReactionRequest { get; set; }
+    /// <summary>
+    /// Приветственное сообщение в треде консультации
+    /// </summary>
+    public bool WelcomeThreadMessage { get; set; }
+  }    
   }
 }
