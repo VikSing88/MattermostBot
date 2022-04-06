@@ -23,6 +23,16 @@ namespace ApiClient
     /// ИД автора сообщения.
     /// </summary>
     public string userId;
+
+    ///<summary>
+    ///Текст сообщения.
+    ///</summary>
+    public string message;
+
+    ///<summary>
+    ///ID прикрепленных файлов
+    ///</summary>
+    public string[] fileIDs;
   }
 
   /// <summary>
@@ -54,6 +64,27 @@ namespace ApiClient
     /// ИД главного сообщения, от которого образован тред.
     /// </summary>
     public string rootID;
+
+    /// <summary>
+    /// Дата и время создания сообщения, от которого образован тред.
+    /// </summary>
+    public string rootDateTime;
+  }
+
+  public class UserInfo
+  {
+    /// <summary>
+    /// Имя пользователя.
+    /// </summary>
+    public string firstName;
+    /// <summary>
+    /// Фамилия пользователя.
+    /// </summary>
+    public string lastName;
+    /// <summary>
+    /// Никнейм пользователя.
+    /// </summary>
+    public string userName;
   }
 
   /// <summary>
@@ -68,6 +99,11 @@ namespace ApiClient
     /// <param name="message">Текст сообщения.</param>
     /// <param name="rootID">ИД сообщения, от которого образован тред.</param>
     public void PostMessage(string channelID, string message, string rootID = null);
+
+    ///<summary>
+    ///Получить данные пользователя по ID.
+    ///</summary>
+    public UserInfo GetUserInfoByID(string userID);
 
     /// <summary>
     /// Получить список запиненных сообщений канала.

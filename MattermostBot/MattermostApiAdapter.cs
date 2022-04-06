@@ -50,7 +50,15 @@ namespace ApiAdapter
       public string channel_id;
       public string user_id;
       public string root_id;
+      public string create_at;
+      public string files;
     }
+
+    public UserInfo GetUserInfoByID(string userID)
+    {
+      User u = User.GetById(api, userID).Result;
+      return new UserInfo {firstName = u.first_name, lastName = u.last_name, userName = u.username};
+    } 
 
     public Message[] GetPinnedMessages(string channelID)
     {
@@ -92,10 +100,17 @@ namespace ApiAdapter
 
     async public void StartReceivingServerMessages(Action<MessageEventInfo> newPostEventHandler, Action<string> errorEventHandler, CancellationToken cancellationToken)
     {
+      try
+      {
       using var webSocket = new ClientWebSocket();      
       webSocket.Options.SetRequestHeader("Authorization", $"Bearer {api.Settings.AccessToken}");
       await webSocket.ConnectAsync(new Uri(GetWebSocketUri()), default);
       await StartNewPostEventHandling(webSocket, newPostEventHandler, errorEventHandler, cancellationToken);
+      }
+      catch 
+      { 
+        Console.WriteLine("Ошибка в StartReceivingServerMessages"); 
+      };
     }
 
     /// <summary>
@@ -172,8 +187,7 @@ namespace ApiAdapter
       JObject j = api.GetAsync(request).Result;
       PostList postList = j.ConvertToObject<PostList>();
       postList.List = postList.Convert(j).List;
-      return postList.List.Select(p =>
-        new Message { messageId = p.id, dateTime = p.create_at ?? DateTime.MinValue, userId = p.user_id }).ToArray();
+      return postList.List.Select(p => new Message { messageId = p.id, dateTime = p.create_at ?? DateTime.MinValue, userId = p.user_id, message = p.message, fileIDs = p.file_ids }).ToArray();
     }
 
     public MattermostApiAdapter(string uri, string token)

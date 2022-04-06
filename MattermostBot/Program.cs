@@ -1,8 +1,10 @@
 ﻿using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using ApiAdapter;
 using ApiClient;
 using Microsoft.Extensions.Configuration;
@@ -95,6 +97,11 @@ namespace MattermostBot
     /// </summary>
     private static int channelCheckPeriodInMinutes;
 
+    ///<summary>
+    ///Путь к папке с сохраненными тредами
+    ///</summary>
+    private static string pathToDownloadDirectory;
+
     /// <summary>
     /// Действие, которое надо совершить над запиненным сообщением.
     /// </summary>
@@ -163,6 +170,7 @@ namespace MattermostBot
         botUserID = config["BotUserID"];
         channelCheckPeriodInMinutes = TryConvertStringToInt("ChannelCheckPeriodInMinutes", config["ChannelCheckPeriodInMinutes"],
             ChannelCheckPeriodInMinutesbyDefault);
+        pathToDownloadDirectory = config["PathToDownloadDirectory"];
       }
       catch (Exception ex)
       {
@@ -218,6 +226,74 @@ namespace MattermostBot
           break;
         }
       }
+      else 
+      {
+        try 
+        {
+          if (messageEventInfo.message.Contains('@') == true)
+            {
+              if (Regex.IsMatch(messageEventInfo.message, @"\w*@roberto download\w*", RegexOptions.IgnoreCase))
+                DownloadThread(messageEventInfo);
+            }
+        }
+        catch (DirectoryNotFoundException dirEx)
+        {
+          Console.WriteLine("Путь не найден: " + dirEx.Message);
+        }
+       }
+    }
+
+    ///<summary>
+    ///Скачать тред
+    ///</summary>
+    private static void DownloadThread(MessageEventInfo messageEventInfo)
+    {
+      Message[] messages = mattermostApi.GetThreadMessages(messageEventInfo.rootID);
+      IEnumerable<Message> messagesSorted = GetMessagesSorted(RemoveDupesFromMessages(messages));
+      UserInfo rootUserInfo = mattermostApi.GetUserInfoByID(messages[0].userId);
+
+      string path = CreateThreadPath(pathToDownloadDirectory, rootUserInfo, messages[0].dateTime);
+      string pathFilesFolder = path + @"\files";
+      Directory.CreateDirectory(pathFilesFolder);
+      string threadTxt = path + @"\thread.txt";
+
+      StreamWriter thread = File.CreateText(threadTxt);
+      foreach (Message message in messagesSorted)
+      {
+        var userInfo = mattermostApi.GetUserInfoByID(message.userId);
+        thread.WriteLine(message.dateTime + "\n" + userInfo.firstName + " " + userInfo.lastName + " (" + userInfo.userName + "):"+ message.message + "\n");
+      }
+      thread.Close();
+      Console.WriteLine("Тред скачан по адресу: " + threadTxt);
+    }
+
+    ///<summary>
+    ///Отсортировать тред.
+    ///</summary>
+    private static IEnumerable<Message> GetMessagesSorted(IEnumerable<Message> messages)
+    {
+      IEnumerable<Message> messagesSorted = messages.OrderBy(message => message.dateTime);
+      return messagesSorted;
+    }
+    
+    ///<summary>
+    ///Убрать дубли сообщений
+    ///</summary>
+    private static IEnumerable<Message> RemoveDupesFromMessages(Message[] messages)
+    {
+      var messagesNoDupes = messages.GroupBy(x => x.messageId).Select(y => y.First());
+      return messagesNoDupes;
+    }
+
+
+    ///<summary>
+    ///Создать путь для скачки треда.
+    ///</summary>
+    private static string CreateThreadPath(string pathToDownloadDirectory, UserInfo rootUserInfo, DateTime rootDateTime)
+    {
+      string rootDateTimeString = Convert.ToString(rootDateTime).Replace(':', '-');
+      string path = pathToDownloadDirectory + @"\" + string.Format("{0} {1} {2} {3}", rootDateTimeString, rootUserInfo.firstName, rootUserInfo.lastName, rootUserInfo.userName);
+      return path;
     }
 
       /// <summary>
