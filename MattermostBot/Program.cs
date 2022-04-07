@@ -1,11 +1,11 @@
-﻿using System;
+﻿using ApiAdapter;
+using ApiClient;
+using Microsoft.Extensions.Configuration;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using ApiAdapter;
-using ApiClient;
-using Microsoft.Extensions.Configuration;
 
 namespace MattermostBot
 {
@@ -34,12 +34,6 @@ namespace MattermostBot
     const string WarningTextMessage = "Новых сообщений не было уже больше {0} дней. Закрываем консультацию?";
 
     /// <summary>
-    /// Текст приветствия в треде.
-    /// </summary>
-    const string TextMessageForNewTread = "Вас приветствует команда МКДО! \n На ваш вопрос ответят при первой возможности. \n Для оперативной техподдержки при обращении через текущий канал предлагаем убедиться, что функционал относится к продуктам, поддерживаемым командой МКДО. Проверьте, что Вы указали версию системы DIRECTUM (и/или службы DISI) с точностью до номера редакции релиза, и предоставили достаточно информации для последующего анализа и поиска причин наблюдаемого поведения системы. Например, полные логи службы DISI, логи SBRte или служб IS-Builder, трейсы SQL сервера, записи журнала Windows, логи сценариев, и т.д.";
-
-
-    /// <summary>
     /// Текст при отпинивании сообщения.
     /// </summary>
     const string UnpiningTextMessage = "Консультация закрыта.";
@@ -47,7 +41,7 @@ namespace MattermostBot
     /// <summary>
     /// Название эмодзи. 
     /// </summary>
-    const string EmojiName = "no_entry_sign";       
+    const string EmojiName = "no_entry_sign";
 
     #endregion
 
@@ -101,16 +95,7 @@ namespace MattermostBot
     /// </summary>
     private static int channelCheckPeriodInMinutes;
 
-    /// <summary>
-    /// Реакция для автоматического отпинивания.
-    /// </summary>
-    private static string reactionRequiest;
-
-    /// <summary>
-    /// Приветственное сообщение в треде консультации.
-    /// </summary>
-    private static bool welcomeThreadMessage;
-
+ 
     /// <summary>
     /// Действие, которое надо совершить над запиненным сообщением.
     /// </summary>
@@ -136,7 +121,7 @@ namespace MattermostBot
     {
       int resultValue;
       try
-      { 
+      {
         resultValue = Convert.ToInt32(value);
       }
       catch (Exception ex)
@@ -170,8 +155,8 @@ namespace MattermostBot
             DaysBeforeUnpiningByDefault);
           var autoPinNewMessage = bool.Parse(config.GetSection($"Channels:{i}:AutoPinNewMessage").Value);
           var welcomeMessage = config.GetSection($"Channels:{i}:WelcomeMessage").Value;
-          welcomeThreadMessage = bool.Parse(config.GetSection($"Channels:{i}:WelcomeThreadMessage").Value);
-          reactionRequiest = config.GetSection($"Channels:{i}:ReactionRequest").Value;
+          var welcomeThreadMessage = config.GetSection($"Channels:{i}:WelcomeThreadMessage").Value;
+          var reactionRequiest = config.GetSection($"Channels:{i}:ReactionRequest").Value;
 
           channelsInfo.Add(new ChannelInfo(channelID, daysBeforeWarning, daysBeforeUnpining, autoPinNewMessage, welcomeMessage, reactionRequiest, welcomeThreadMessage));
           i++;
@@ -202,7 +187,7 @@ namespace MattermostBot
           .Connect(cancellationTokenSource.Token);
         while (true)
         {
-          foreach(var channelInfo in channelsInfo)
+          foreach (var channelInfo in channelsInfo)
           {
             tasks.Add(Task.Run(() => ProcessPinsList(channelInfo)));
           }
@@ -228,14 +213,15 @@ namespace MattermostBot
         foreach (var channelInfo in channelsInfo.Where(info => info.ChannelID == messageEventInfo.channelID))
         {
           if (!string.IsNullOrEmpty(channelInfo.WelcomeMessage))
+            
             mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, messageEventInfo.userID, channelInfo.WelcomeMessage);
 
           if (channelInfo.AutoPinNewMessage)
           {
             mattermostApi.PinMessage(messageEventInfo.id);
-            if (welcomeThreadMessage)
+            if (channelInfo.WelcomeThreadMessage != null)
             {
-              ReplyMessageInNewThreads(messageEventInfo.id, channelInfo);
+              ReplyMessageInNewThreads(channelInfo.WelcomeThreadMessage, messageEventInfo.id, channelInfo);
             }
           }
 
@@ -244,18 +230,19 @@ namespace MattermostBot
       }
     }
 
-      /// <summary>
-      /// Обработать список запиненных сообщений.
-      /// </summary>
-      private static void ProcessPinsList(ChannelInfo channelInfo)
+    /// <summary>
+    /// Обработать список запиненных сообщений.
+    /// </summary>
+    private static void ProcessPinsList(ChannelInfo channelInfo)
     {
       try
       {
         var pinnedMessages = mattermostApi.GetPinnedMessages(channelInfo.ChannelID);
-        if (reactionRequiest != null)
+        if (channelInfo.ReactionRequest != null)
         {
-          var pinnedWithReactionMessages = mattermostApi.GetPinnedMessagesWithReactionRequest(channelInfo.ChannelID, "\"emoji_name\": \"heavy_check_mark\"");
-          UnpinningMessages(pinnedWithReactionMessages);
+          var pinnedWithReactionMessages = pinnedMessages.ToList().Where(m => m.reactions != null && m.reactions.Any(e => e == channelInfo.ReactionRequest));
+          if (pinnedWithReactionMessages.Any())
+            UnpinningMessages(pinnedWithReactionMessages.ToArray());
         }
         var oldMessageTSList = GetOldMessageList(pinnedMessages, channelInfo);
         ReplyMessageInOldThreads(oldMessageTSList, channelInfo);
@@ -304,11 +291,10 @@ namespace MattermostBot
     /// Отправить сообщение в тред для нового вопроса.
     /// </summary>
     /// <param name="messageInfos">Список запиненных сообщений.</param>
-    private static void ReplyMessageInNewThreads(string messageID, ChannelInfo channelInfo)
+    private static void ReplyMessageInNewThreads(string message, string messageID, ChannelInfo channelInfo)
     {
-      SendMessage(TextMessageForNewTread, messageID, channelInfo);
+      SendMessage(message, messageID, channelInfo);
     }
-
 
     /// <summary>
     /// Открепить сообщение.
@@ -350,11 +336,11 @@ namespace MattermostBot
     /// </summary>
     /// <param name="messageId">ИД запиненного сообщения.</param>
     /// <returns>Действие, которое необходимо с закрепленным сообщением.</returns>
-    private static MessageAction GetPinedMessageAction(string messageId, ChannelInfo channelInfo) 
+    private static MessageAction GetPinedMessageAction(string messageId, ChannelInfo channelInfo)
     {
       var messages = mattermostApi.GetThreadMessages(messageId);
       var latest_message = messages.OrderBy(m => m.dateTime).Last();
-      return DefineActionByDateAndAuthorOfMessage(latest_message.dateTime, latest_message.userId, channelInfo );
+      return DefineActionByDateAndAuthorOfMessage(latest_message.dateTime, latest_message.userId, channelInfo);
     }
 
     /// <summary>
@@ -375,7 +361,7 @@ namespace MattermostBot
     /// <returns>Действие над закрепленным сообщением.</returns>
     private static MessageAction DefineActionByDateAndAuthorOfMessage(DateTime messageDateTime, string userID, ChannelInfo channelInfo)
     {
-      if (messageDateTime != null)      
+      if (messageDateTime != null)
       {
         if ((userID != botUserID) & (IsOldPinedMessage(messageDateTime, channelInfo.DaysBeforeWarning)))
         {
@@ -398,7 +384,7 @@ namespace MattermostBot
     /// <returns>Признак, является ли закрепленное сообщение старым.</returns>
     private static bool IsOldPinedMessage(DateTime messageDateTime, int DayCount)
     {
-      return messageDateTime.AddDays(DayCount) < DateTime.UtcNow; 
+      return messageDateTime.AddDays(DayCount) < DateTime.UtcNow;
     }
 
     /// <summary>

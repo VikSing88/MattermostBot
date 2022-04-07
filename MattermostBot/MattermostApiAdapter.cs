@@ -1,8 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.WebSockets;
-using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -56,11 +56,6 @@ namespace ApiAdapter
     public Message[] GetPinnedMessages(string channelID)
     {
       return GetMessagesByRequest(Api.Combine("channels", channelID, "pinned"));
-    }
-
-     public Message[] GetPinnedMessagesWithReactionRequest(string channelID, string reactionRequest)
-    {
-      return GetMessagesByRequestAndReaction(Api.Combine("channels", channelID, "pinned"), reactionRequest);
     }
 
     public void PostMessage(string channelID, string message, string rootId = null)
@@ -175,31 +170,39 @@ namespace ApiAdapter
     /// <returns>Список сообщений.</returns>
     private Message[] GetMessagesByRequest(string request)
     {
+      var messageList = new List <Message> (); 
       JObject j = api.GetAsync(request).Result;
       PostList postList = j.ConvertToObject<PostList>();
       postList.List = postList.Convert(j).List;
       return postList.List.Select(p =>
-        new Message { messageId = p.id, dateTime = p.create_at ?? DateTime.MinValue, userId = p.user_id }).ToArray();
+        new Message 
+        { 
+          messageId = p.id, 
+          dateTime = p.create_at ?? DateTime.MinValue, 
+          userId = p.user_id,
+          reactions = GetReactionsList(p)
+        }).ToArray();
     }
 
     /// <summary>
-    /// Получить список сообщений Mattermost по строке запроса и реакции.
+    /// Получить список реакций на основное сообщение
     /// </summary>
-    /// <param name="request">Запрос.</param>
-    /// <param name="reaction">Реакция.</param>
-    /// <returns>Список сообщений.</returns>
-    private Message[] GetMessagesByRequestAndReaction(string request, string reaction)
+    /// <param name="post">Сообщение MatterMost</param>
+    /// <returns></returns>    
+    private string[] GetReactionsList(Post post)
     {
-      JObject j = api.GetAsync(request).Result;
-      PostList postList = j.ConvertToObject<PostList>();
-      postList.List = postList.Convert(j).List;
-      var reactionPath = reaction.Split(new char[] {':'}).First().Trim(new char[] { '\"', '\"' });
+      string[] results = null;
+      JToken hasReaction = null;
 
-      return postList.List.Where(elem => elem.AdditionalData
-              .Any(e => e.Key == "has_reactions" && e.Value.ToString() == "True") && elem.metadata.reactions.Children()
-              .Any(react => react.Any(r => r.Path == reactionPath) && react.ToString() == reaction.ToString()))?
-                  .Select(p =>
-                     new Message { messageId = p.id, dateTime = p.create_at ?? DateTime.MinValue, userId = p.user_id }).ToArray();
+      if (post.AdditionalData.TryGetValue("has_reactions", out hasReaction)
+        && (hasReaction.ToString() == "True"))
+      {
+        results = post.metadata.reactions.Children()
+          .Where(elem => elem.Path.Contains("emoji_name"))
+          .Select(elem => elem.Values().First().ToString())
+          .ToArray();
+      }
+      return results;
     }
 
     public MattermostApiAdapter(string uri, string token)
@@ -208,8 +211,9 @@ namespace ApiAdapter
       {
         ServerUri = new Uri(uri),
         AccessToken = token,
-        ApplicationName = "RobertoBot",
-        RedirectUri = new Uri("http://localhost/"),
+        ApplicationName = "hubot_mkdo_d5",
+        //RedirectUri = new Uri("http://localhost/"),
+        RedirectUri = new Uri("http://w714s19/"),
         TokenExpires = DateTime.MaxValue,
       };
       this.api = new Api(settings);
