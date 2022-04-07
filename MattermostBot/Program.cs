@@ -252,7 +252,7 @@ namespace MattermostBot
       IEnumerable<Message> messagesSorted = GetMessagesSorted(RemoveDupesFromMessages(messages));
       UserInfo rootUserInfo = mattermostApi.GetUserInfoByID(messages[0].userId);
 
-      string path = CreateThreadPath(pathToDownloadDirectory, rootUserInfo, messages[0].dateTime);
+      string path = CreateThreadPath(pathToDownloadDirectory, rootUserInfo, messages[0].dateTime.AddHours(4));
       string pathFilesFolder = path + @"\files";
       Directory.CreateDirectory(pathFilesFolder);
       string threadTxt = path + @"\thread.txt";
@@ -261,7 +261,7 @@ namespace MattermostBot
       foreach (Message message in messagesSorted)
       {
         var userInfo = mattermostApi.GetUserInfoByID(message.userId);
-        thread.WriteLine(message.dateTime + "\n" + userInfo.firstName + " " + userInfo.lastName + " (" + userInfo.userName + "):"+ message.message + "\n");
+        thread.WriteLine(message.dateTime.AddHours(4) + "\n" + userInfo.firstName + " " + userInfo.lastName + " (" + userInfo.userName + "):"+ message.message + "\n");
       }
       thread.Close();
       Console.WriteLine("Тред скачан по адресу: " + threadTxt);
