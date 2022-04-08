@@ -211,7 +211,7 @@ namespace ApiAdapter
       {
         ServerUri = new Uri(uri),
         AccessToken = token,
-        ApplicationName = "hubot_mkdo_d5",
+        ApplicationName = "RobertoBot",
         RedirectUri = new Uri("http://localhost/"),
         TokenExpires = DateTime.MaxValue,
       };
