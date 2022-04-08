@@ -188,7 +188,7 @@ namespace ApiAdapter
     /// Получить список реакций на основное сообщение
     /// </summary>
     /// <param name="post">Сообщение MatterMost</param>
-    /// <returns></returns>    
+    /// <returns>Список реакций</returns>    
     private string[] GetReactionsList(Post post)
     {
       string[] results = null;
@@ -212,8 +212,7 @@ namespace ApiAdapter
         ServerUri = new Uri(uri),
         AccessToken = token,
         ApplicationName = "hubot_mkdo_d5",
-        //RedirectUri = new Uri("http://localhost/"),
-        RedirectUri = new Uri("http://w714s19/"),
+        RedirectUri = new Uri("http://localhost/"),
         TokenExpires = DateTime.MaxValue,
       };
       this.api = new Api(settings);
