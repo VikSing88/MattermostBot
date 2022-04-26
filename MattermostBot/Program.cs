@@ -155,11 +155,10 @@ namespace MattermostBot
           var daysBeforeUnpining = TryConvertStringToInt("daysBeforeUnpining", config.GetSection($"Channels:{i}:DaysBeforeUnpining").Value,
             DaysBeforeUnpiningByDefault);
           var autoPinNewMessage = bool.Parse(config.GetSection($"Channels:{i}:AutoPinNewMessage").Value);
-          var welcomeMessage = config.GetSection($"Channels:{i}:WelcomeMessage").Value;
           var welcomeThreadMessage = config.GetSection($"Channels:{i}:WelcomeThreadMessage").Value;
           var reactionRequiest = config.GetSection($"Channels:{i}:ReactionRequest").Value;
 
-          channelsInfo.Add(new ChannelInfo(channelID, daysBeforeWarning, daysBeforeUnpining, autoPinNewMessage, welcomeMessage, reactionRequiest, welcomeThreadMessage));
+          channelsInfo.Add(new ChannelInfo(channelID, daysBeforeWarning, daysBeforeUnpining, autoPinNewMessage, reactionRequiest, welcomeThreadMessage));
           i++;
         }
         mattermostUri = config["MattermostUri"];
@@ -213,16 +212,12 @@ namespace MattermostBot
       {
         foreach (var channelInfo in channelsInfo.Where(info => info.ChannelID == messageEventInfo.channelID))
         {
-          if (!string.IsNullOrEmpty(channelInfo.WelcomeMessage))
-            
-            mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, messageEventInfo.userID, channelInfo.WelcomeMessage);
-
           if (channelInfo.AutoPinNewMessage)
           {
             mattermostApi.PinMessage(messageEventInfo.id);
             if (channelInfo.WelcomeThreadMessage != null)
             {
-              ReplyMessageInNewThreads(channelInfo.WelcomeThreadMessage, messageEventInfo.id, channelInfo);
+              SendMessageToThread(channelInfo.WelcomeThreadMessage, messageEventInfo.id, channelInfo);
             }
           }
 
@@ -239,15 +234,8 @@ namespace MattermostBot
       try
       {
         var pinnedMessages = mattermostApi.GetPinnedMessages(channelInfo.ChannelID);
-        var MessageActionsTSList = GetMessageActionsList(pinnedMessages, channelInfo);
-        
-        if (channelInfo.ReactionRequest != null)
-        {
-          var pinnedWithReactionMessages = MessageActionsTSList.ToList().Where(m => m.action == MessageAction.NeedUnpin);
-          if (pinnedWithReactionMessages.Any())
-            UnpinningMessages(pinnedWithReactionMessages.ToArray());
-        }
-        ReplyMessageInOldThreads(MessageActionsTSList, channelInfo);
+        var messageActionsList = GetMessageActionsList(pinnedMessages, channelInfo);
+        ProcessPinnedMessage(messageActionsList, channelInfo);
       }
       catch (Exception ex)
       {
@@ -260,17 +248,22 @@ namespace MattermostBot
     /// Отправить сообщение в тред.
     /// </summary>
     /// <param name="messageInfos">Список запиненных сообщений.</param>
-    private static void ReplyMessageInOldThreads(List<MessageInfo> messageInfos, ChannelInfo channelInfo)
+    private static void ProcessPinnedMessage(List<MessageInfo> messageInfos, ChannelInfo channelInfo)
     {
+              
+      var pinnedWithReactionMessages = messageActionsList.ToList().Where(m => m.action == MessageAction.NeedUnpin);
+      if (pinnedWithReactionMessages.Any())
+        UnpinningMessages(pinnedWithReactionMessages.ToArray());
+        
       foreach (MessageInfo messageInfo in messageInfos)
       {
         if (messageInfo.action == MessageAction.NeedWarning)
         {
-          SendMessage(String.Format(WarningTextMessage, channelInfo.DaysBeforeWarning), messageInfo.id, channelInfo);
+          SendMessageToThread(String.Format(WarningTextMessage, channelInfo.DaysBeforeWarning), messageInfo.id, channelInfo);
         }
         else if (messageInfo.action == MessageAction.NeedUnpinWithMessage)
         {
-          SendMessage(UnpiningTextMessage, messageInfo.id, channelInfo);
+          SendMessageToThread(UnpiningTextMessage, messageInfo.id, channelInfo);
           AddEmoji(messageInfo.id);
           UnpinMessage(messageInfo.id);
         }
@@ -285,17 +278,8 @@ namespace MattermostBot
     {
       foreach (var message in messages)
       {
-        UnpinMessage(message.Id);
+        UnpinMessage(message.id);
       }
-    }
-
-    /// <summary>
-    /// Отправить сообщение в тред для нового вопроса.
-    /// </summary>
-    /// <param name="messageInfos">Список запиненных сообщений.</param>
-    private static void ReplyMessageInNewThreads(string message, string messageID, ChannelInfo channelInfo)
-    {
-      SendMessage(message, messageID, channelInfo);
     }
 
     /// <summary>
@@ -314,26 +298,27 @@ namespace MattermostBot
     /// <returns>Список закрепленных сообщений, с момента создания которых прошло больше DaysCountBeforeWarning дней.</returns>
     private static List<MessageInfo> GetMessageActionsList(Message[] pinedMessages, ChannelInfo channelInfo)
     {
-      var PinedMessageActionsList = new List<MessageInfo>();
+      var pinedMessageActionsList = new List<MessageInfo>();
       if (pinedMessages != null)
       {
         foreach (var pinedMessage in pinedMessages)
         {
           MessageAction msgAction = Task.Run(() => GetPinedMessageAction(pinedMessage, channelInfo)).Result;
-          PinedMessageActionsList.Add(new MessageInfo()
+          pinedMessageActionsList.Add(new MessageInfo()
           {
             id = pinedMessage.messageId,
             action = msgAction
           });
         }
       }
-      return PinedMessageActionsList;
+      return pinedMessageActionsList;
     }
 
     /// <summary>
     /// Определить действие, которое необходимо с закрепленным сообщением.
     /// </summary>
-    /// <param name="messageId">Запиненное сообщение.</param>
+    /// <param name="message">Закрепленное сообщение.</param>
+    /// <param name="channelInfo">Информация о канале.</param>
     /// <returns>Действие, которое необходимо с закрепленным сообщением.</returns>
     private static MessageAction GetPinedMessageAction(Message message, ChannelInfo channelInfo)
     {
@@ -388,7 +373,7 @@ namespace MattermostBot
     /// <param name="textMessage">Текст отправляемого сообщения.</param>
     /// <param name="messageId">ИД закрепленного сообщения.</param>
     /// <param name="channelInfo">Информация о канале, в котором нахоидтся тред.</param>
-    private static void SendMessage(string textMessage, string messageId, ChannelInfo channelInfo)
+    private static void SendMessageToThread(string textMessage, string messageId, ChannelInfo channelInfo)
     {
       mattermostApi.PostMessage(channelInfo.ChannelID, textMessage, messageId);
     }

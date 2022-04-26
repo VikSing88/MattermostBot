@@ -3,13 +3,12 @@
   class ChannelInfo
   {
     public ChannelInfo(string channelID, int daysBeforeWarning, int daysBeforeUnpining, 
-      bool autoPinNewMessage, string welcomeMessage, string reactionRequest, string welcomeThreadMessage)
+      bool autoPinNewMessage, string reactionRequest, string welcomeThreadMessage)
     {
       ChannelID = channelID;
       DaysBeforeWarning = daysBeforeWarning;
       DaysBeforeUnpining = daysBeforeUnpining;
       AutoPinNewMessage = autoPinNewMessage;
-      WelcomeMessage = welcomeMessage;
       ReactionRequest = reactionRequest;
       WelcomeThreadMessage = welcomeThreadMessage;
     }
@@ -30,10 +29,6 @@
     /// Разрешение или запрет на автопин
     /// </summary>
     public bool AutoPinNewMessage { get; set; }
-    /// <summary>
-    /// Приветственное сообщение
-    /// </summary>
-    public string WelcomeMessage { get; set; }
     /// <summary>
     /// Реакция для автоматического отпинивания
     /// </summary>
