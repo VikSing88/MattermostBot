@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.WebSockets;
@@ -169,11 +170,39 @@ namespace ApiAdapter
     /// <returns>Список сообщений.</returns>
     private Message[] GetMessagesByRequest(string request)
     {
+      var messageList = new List <Message> (); 
       JObject j = api.GetAsync(request).Result;
       PostList postList = j.ConvertToObject<PostList>();
       postList.List = postList.Convert(j).List;
       return postList.List.Select(p =>
-        new Message { messageId = p.id, dateTime = p.create_at ?? DateTime.MinValue, userId = p.user_id }).ToArray();
+        new Message 
+        { 
+          messageId = p.id, 
+          dateTime = p.create_at ?? DateTime.MinValue, 
+          userId = p.user_id,
+          reactions = GetReactionsList(p)
+        }).ToArray();
+    }
+
+    /// <summary>
+    /// Получить список реакций на основное сообщение
+    /// </summary>
+    /// <param name="post">Сообщение MatterMost</param>
+    /// <returns>Список реакций</returns>    
+    private string[] GetReactionsList(Post post)
+    {
+      string[] results = null;
+      JToken hasReaction = null;
+
+      if (post.AdditionalData.TryGetValue("has_reactions", out hasReaction)
+        && (hasReaction.ToString() == "True"))
+      {
+        results = post.metadata.reactions.Children()
+          .Where(elem => elem.Path.Contains("emoji_name"))
+          .Select(elem => elem.Values().First().ToString())
+          .ToArray();
+      }
+      return results;
     }
 
     public MattermostApiAdapter(string uri, string token)

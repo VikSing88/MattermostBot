@@ -23,6 +23,11 @@ namespace ApiClient
     /// ИД автора сообщения.
     /// </summary>
     public string userId;
+
+    /// <summary>
+    /// Список информации о реакциях на сообщение
+    /// </summary>
+    public string[] reactions;
   }
 
   /// <summary>
