@@ -250,14 +250,13 @@ namespace MattermostBot
     /// <param name="messageInfos">Список запиненных сообщений.</param>
     private static void ProcessPinnedMessage(List<MessageInfo> messageInfos, ChannelInfo channelInfo)
     {
-              
-      var pinnedWithReactionMessages = messageActionsList.ToList().Where(m => m.action == MessageAction.NeedUnpin);
-      if (pinnedWithReactionMessages.Any())
-        UnpinningMessages(pinnedWithReactionMessages.ToArray());
-        
       foreach (MessageInfo messageInfo in messageInfos)
       {
-        if (messageInfo.action == MessageAction.NeedWarning)
+        if (messageInfo.action == MessageAction.NeedUnpin)
+        {
+          UnpinMessage(messageInfo.id);
+        }
+        else if (messageInfo.action == MessageAction.NeedWarning)
         {
           SendMessageToThread(String.Format(WarningTextMessage, channelInfo.DaysBeforeWarning), messageInfo.id, channelInfo);
         }
@@ -267,18 +266,6 @@ namespace MattermostBot
           AddEmoji(messageInfo.id);
           UnpinMessage(messageInfo.id);
         }
-      }
-    }
-
-    /// <summary>
-    /// Открепить сообщения.
-    /// </summary>
-    /// <param name="messageInfos">Список запиненных сообщений.</param>
-    private static void UnpinningMessages(MessageInfo[] messages)
-    {
-      foreach (var message in messages)
-      {
-        UnpinMessage(message.id);
       }
     }
 
