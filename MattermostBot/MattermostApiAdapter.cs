@@ -51,6 +51,7 @@ namespace ApiAdapter
       public string channel_id;
       public string user_id;
       public string root_id;
+      public string type;
     }
 
     public Message[] GetPinnedMessages(string channelID)
@@ -140,8 +141,11 @@ namespace ApiAdapter
                 if (message.@event == "posted")
                 {
                   var postData = JsonConvert.DeserializeObject<PostData>(message.data.post);
-                  newPostEventHandler(
-                    new MessageEventInfo() { id = postData.id, message = postData.message, channelID = postData.channel_id, userID = postData.user_id, rootID = postData.root_id });
+                  // У сообщений от обычных пользователей (т.е. НЕсистемных) тип сообщения не указывается.
+                  if (postData.type == string.Empty)
+                    newPostEventHandler(
+                      new MessageEventInfo() { id = postData.id, message = postData.message, channelID = postData.channel_id, 
+                        userID = postData.user_id, rootID = postData.root_id });
                 }
               }
               catch (Exception ex)
