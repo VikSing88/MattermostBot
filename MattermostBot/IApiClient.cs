@@ -68,19 +68,26 @@ namespace ApiClient
     /// <summary>
     /// Дата и время создания сообщения, от которого образован тред.
     /// </summary>
-    public string rootDateTime;
+    public DateTime rootDateTime;
   }
 
   public class UserInfo
   {
     /// <summary>
+    /// ИД пользователя.
+    /// </summary>
+    public string userID;
+
+    /// <summary>
     /// Имя пользователя.
     /// </summary>
     public string firstName;
+
     /// <summary>
     /// Фамилия пользователя.
     /// </summary>
     public string lastName;
+
     /// <summary>
     /// Никнейм пользователя.
     /// </summary>

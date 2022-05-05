@@ -228,78 +228,104 @@ namespace MattermostBot
       }
       else 
       {
-        try 
+        if (messageEventInfo.message.Contains('@') == true)
         {
-          if (messageEventInfo.message.Contains('@') == true)
-            {
-              if (Regex.IsMatch(messageEventInfo.message, @"\w*@roberto download\w*", RegexOptions.IgnoreCase))
-                DownloadThread(messageEventInfo);
-            }
+          if (Regex.IsMatch(messageEventInfo.message, @"(?:roberto)", RegexOptions.IgnoreCase))
+          {
+            if (Regex.IsMatch(messageEventInfo.message, @"(?:download)", RegexOptions.IgnoreCase))
+              DownloadThread(messageEventInfo);
+            else
+              mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, messageEventInfo.userID,string.Format(
+                ":rotating_light: Ошибка!!! Роберто не знает команды {0} :rotating_light: \nДоступные команды: {1}",
+                messageEventInfo.message.Substring(messageEventInfo.message.IndexOf('@') + "@roberto".Length),"download"));
+          }
         }
-        catch (DirectoryNotFoundException dirEx)
-        {
-          Console.WriteLine("Путь не найден: " + dirEx.Message);
-        }
-       }
+      }
     }
 
-    ///<summary>
-    ///Скачать тред
-    ///</summary>
+    /// <summary>
+    /// Скачать тред.
+    /// </summary>
+    /// <param name="messageEventInfo">Информация о событии.</param>
     private static void DownloadThread(MessageEventInfo messageEventInfo)
     {
       Message[] messages = mattermostApi.GetThreadMessages(messageEventInfo.rootID);
       IEnumerable<Message> messagesSorted = GetMessagesSorted(RemoveDupesFromMessages(messages));
-      UserInfo rootUserInfo = mattermostApi.GetUserInfoByID(messages[0].userId);
+      UserInfo rootUserInfo = mattermostApi.GetUserInfoByID(messageEventInfo.userID);
 
-      string path = CreateThreadPath(pathToDownloadDirectory, rootUserInfo, messages[0].dateTime.AddHours(4));
-      string pathFilesFolder = path + @"\files";
-      Directory.CreateDirectory(pathFilesFolder);
-      string threadTxt = path + @"\thread.txt";
+      var pathToThread = GetPathToSaveThread(pathToDownloadDirectory, rootUserInfo, messages[0].dateTime.ToLocalTime());
+      try 
+      { 
+        Directory.CreateDirectory(pathToThread);
+        var pathToThreadFile = Path.Combine(pathToThread, "thread.txt");
 
-      StreamWriter thread = File.CreateText(threadTxt);
-      foreach (Message message in messagesSorted)
-      {
-        var userInfo = mattermostApi.GetUserInfoByID(message.userId);
-        thread.WriteLine(message.dateTime.AddHours(4) + "\n" + userInfo.firstName + " " + userInfo.lastName + " (" + userInfo.userName + "):"+ message.message + "\n");
+        StreamWriter thread = File.CreateText(pathToThreadFile);
+        foreach (Message message in messagesSorted)
+        {
+          var userInfo = mattermostApi.GetUserInfoByID(message.userId);
+          if (userInfo.firstName != null && userInfo.lastName != null)
+            thread.WriteLine(message.dateTime.ToLocalTime() + "\n" + userInfo.firstName + " " + userInfo.lastName + ":" + message.message + "\n");
+          else
+            thread.WriteLine(message.dateTime.ToLocalTime() + "\n" + " (" + userInfo.userName + "):" + message.message + "\n");
+        }
+        thread.Close();
+        mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, rootUserInfo.userID, "Тред скачан и находится здесь: " + pathToThread);
+        Console.WriteLine("Тред скачан по адресу: " + pathToThreadFile);
       }
-      thread.Close();
-      Console.WriteLine("Тред скачан по адресу: " + threadTxt);
+
+      catch (DirectoryNotFoundException dirEx)
+      {
+        mattermostApi.PostMessage(messageEventInfo.channelID, ":rotating_light: Ошибка!!! Роберто не знает команды {0} :rotating_light:" +
+          dirEx.Message);
+        Console.WriteLine("Путь не найден: " + dirEx.Message);
+      }
     }
 
-    ///<summary>
-    ///Отсортировать тред.
-    ///</summary>
+    /// <summary>
+    /// Отсортировать тред.
+    /// </summary>
+    /// <param name="messages">Список сообщений в треде.</param>
     private static IEnumerable<Message> GetMessagesSorted(IEnumerable<Message> messages)
     {
-      IEnumerable<Message> messagesSorted = messages.OrderBy(message => message.dateTime);
-      return messagesSorted;
+      return messages.OrderBy(message => message.dateTime);
     }
-    
-    ///<summary>
-    ///Убрать дубли сообщений
-    ///</summary>
+
+    /// <summary>
+    /// Убрать дубли сообщений.
+    /// Mattermost выдает "дубликат" первого сообщения, поэтому нам надо его удалить.    
+    /// </summary>
+    /// <param name="messages">Список сообщений в треде.</param>
     private static IEnumerable<Message> RemoveDupesFromMessages(Message[] messages)
     {
-      var messagesNoDupes = messages.GroupBy(x => x.messageId).Select(y => y.First());
-      return messagesNoDupes;
+      return messages.GroupBy(x => x.messageId).Select(y => y.First());
     }
 
 
-    ///<summary>
-    ///Создать путь для скачки треда.
-    ///</summary>
-    private static string CreateThreadPath(string pathToDownloadDirectory, UserInfo rootUserInfo, DateTime rootDateTime)
+    /// <summary>
+    /// Создать путь для скачивания треда.
+    /// </summary>
+    /// <param name="pathToDownloadDirectory">Путь до папки со всеми скачанными тредами.</param>
+    /// <param name="rootDateTime">Дата создания корневого сообщения треда. </param>
+    /// <param name="rootUserInfo">Информация о создателе корневого сообщения треда.</param>
+    private static string GetPathToSaveThread(string pathToDownloadDirectory, UserInfo rootUserInfo, DateTime rootDateTime)
     {
-      string rootDateTimeString = Convert.ToString(rootDateTime).Replace(':', '-');
-      string path = pathToDownloadDirectory + @"\" + string.Format("{0} {1} {2} {3}", rootDateTimeString, rootUserInfo.firstName, rootUserInfo.lastName, rootUserInfo.userName);
-      return path;
+      var rootDateTimeString = rootDateTime.ToString("yyyy.MM.dd HH-mm");
+      if (rootUserInfo.firstName != null && rootUserInfo.lastName != null)
+      {
+        var path = Path.Combine(pathToDownloadDirectory, string.Format("{0} {1} {2}", rootDateTimeString, rootUserInfo.firstName, rootUserInfo.lastName));
+        return path;
+      }
+      else
+      {
+        var path = Path.Combine(pathToDownloadDirectory, string.Format("{0} {1}", rootDateTimeString, rootUserInfo.userName));
+        return path;
+      }
     }
 
-      /// <summary>
-      /// Обработать список запиненных сообщений.
-      /// </summary>
-      private static void ProcessPinsList(ChannelInfo channelInfo)
+    /// <summary>
+    /// Обработать список запиненных сообщений.
+    /// </summary>
+    private static void ProcessPinsList(ChannelInfo channelInfo)
     {
       try
       {

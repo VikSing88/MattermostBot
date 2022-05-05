@@ -57,7 +57,7 @@ namespace ApiAdapter
     public UserInfo GetUserInfoByID(string userID)
     {
       User u = User.GetById(api, userID).Result;
-      return new UserInfo {firstName = u.first_name, lastName = u.last_name, userName = u.username};
+      return new UserInfo {userID = u.id, firstName = u.first_name, lastName = u.last_name, userName = u.username};
     } 
 
     public Message[] GetPinnedMessages(string channelID)
@@ -155,7 +155,8 @@ namespace ApiAdapter
                 {
                   var postData = JsonConvert.DeserializeObject<PostData>(message.data.post);
                   newPostEventHandler(
-                    new MessageEventInfo() { id = postData.id, message = postData.message, channelID = postData.channel_id, userID = postData.user_id, rootID = postData.root_id });
+                    new MessageEventInfo() { id = postData.id, message = postData.message, channelID = postData.channel_id, 
+                      userID = postData.user_id, rootID = postData.root_id});
                 }
               }
               catch (Exception ex)
@@ -187,7 +188,8 @@ namespace ApiAdapter
       JObject j = api.GetAsync(request).Result;
       PostList postList = j.ConvertToObject<PostList>();
       postList.List = postList.Convert(j).List;
-      return postList.List.Select(p => new Message { messageId = p.id, dateTime = p.create_at ?? DateTime.MinValue, userId = p.user_id, message = p.message, fileIDs = p.file_ids }).ToArray();
+      return postList.List.Select(p => new Message { messageId = p.id, dateTime = p.create_at ??
+        DateTime.MinValue, userId = p.user_id, message = p.message, fileIDs = p.file_ids }).ToArray();
     }
 
     public MattermostApiAdapter(string uri, string token)
