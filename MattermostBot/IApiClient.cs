@@ -33,6 +33,11 @@ namespace ApiClient
     ///ID прикрепленных файлов
     ///</summary>
     public string[] fileIDs;
+
+    ///<summary>
+    ///Наименования прикрепленных файлов
+    ///</summary>
+    public string[] fileNames;
   }
 
   /// <summary>
@@ -64,11 +69,6 @@ namespace ApiClient
     /// ИД главного сообщения, от которого образован тред.
     /// </summary>
     public string rootID;
-
-    /// <summary>
-    /// Дата и время создания сообщения, от которого образован тред.
-    /// </summary>
-    public DateTime rootDateTime;
   }
 
   public class UserInfo
@@ -162,6 +162,14 @@ namespace ApiClient
     /// <param name="cancellationToken">Токен отмены.</param>
     public void StartReceivingServerMessages(Action<MessageEventInfo> newPostEventHandler, Action<string> errorEventHandler, 
       CancellationToken cancellationToken);
+
+    ///<summary>
+    ///Создать файл из сообщения
+    ///</summary>
+    ///<param name="messageID">ID сообщения</param>
+    ///<param name="file_id">ID файла</param>
+    ///<param name="pathToFolder">Путь к папке для скачивания</param>
+    public void CreateLinkedFile(string messageID, string file_id, string pathToFolder);
   }
 
   /// <summary>

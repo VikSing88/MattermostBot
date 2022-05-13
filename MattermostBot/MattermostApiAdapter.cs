@@ -51,7 +51,7 @@ namespace ApiAdapter
       public string user_id;
       public string root_id;
       public string create_at;
-      public string files;
+      public string[] file_ids;
     }
 
     public UserInfo GetUserInfoByID(string userID)
@@ -68,6 +68,14 @@ namespace ApiAdapter
     public void PostMessage(string channelID, string message, string rootId = null)
     {
       Post.Create(api, channelID, message, rootId);
+    }
+
+    public async void CreateLinkedFile(string messageID, string file_id, string pathToFile)
+    {
+      var post = Post.GetById(api, messageID).Result;
+      Stream createFile = File.Create(pathToFile);
+      await post.GetFile(api, file_id, createFile);
+      createFile.Close();
     }
 
     public Message[] GetThreadMessages(string postID)
@@ -154,6 +162,8 @@ namespace ApiAdapter
                 if (message.@event == "posted")
                 {
                   var postData = JsonConvert.DeserializeObject<PostData>(message.data.post);
+                  var post = Post.GetById(api, postData.id).Result;
+                  
                   newPostEventHandler(
                     new MessageEventInfo() { id = postData.id, message = postData.message, channelID = postData.channel_id, 
                       userID = postData.user_id, rootID = postData.root_id});
@@ -166,6 +176,23 @@ namespace ApiAdapter
             }
           }
         }, cancellationToken);
+    }
+
+    public string[] GetLinkedToPostFileNames(Post post)
+    {
+      string[] postFileNames = null; 
+      int i = 0;
+      if (post.file_ids != null)
+      {
+        postFileNames = new string[post.file_ids.Length];
+        foreach (var fileID in post.file_ids)
+        {
+          postFileNames[i] = post.GetFileInfo(api, fileID).Result.name;
+          i++;
+        }
+        return postFileNames;
+      }
+      return postFileNames;
     }
 
     /// <summary>
@@ -189,7 +216,7 @@ namespace ApiAdapter
       PostList postList = j.ConvertToObject<PostList>();
       postList.List = postList.Convert(j).List;
       return postList.List.Select(p => new Message { messageId = p.id, dateTime = p.create_at ??
-        DateTime.MinValue, userId = p.user_id, message = p.message, fileIDs = p.file_ids }).ToArray();
+        DateTime.MinValue, userId = p.user_id, message = p.message, fileIDs = p.file_ids, fileNames = GetLinkedToPostFileNames(p) }).ToArray();
     }
 
     public MattermostApiAdapter(string uri, string token)

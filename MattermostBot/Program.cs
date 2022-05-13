@@ -255,29 +255,68 @@ namespace MattermostBot
 
       var pathToThread = GetPathToSaveThread(pathToDownloadDirectory, rootUserInfo, messages[0].dateTime.ToLocalTime());
       try 
-      { 
+      {
+        bool needToCreateFilesFolder = false;
         Directory.CreateDirectory(pathToThread);
         var pathToThreadFile = Path.Combine(pathToThread, "thread.txt");
-
         StreamWriter thread = File.CreateText(pathToThreadFile);
         foreach (Message message in messagesSorted)
         {
+          if (message.fileIDs != null)
+            needToCreateFilesFolder = true;
           var userInfo = mattermostApi.GetUserInfoByID(message.userId);
           if (userInfo.firstName != null && userInfo.lastName != null)
             thread.WriteLine(message.dateTime.ToLocalTime() + "\n" + userInfo.firstName + " " + userInfo.lastName + ":" + message.message + "\n");
           else
             thread.WriteLine(message.dateTime.ToLocalTime() + "\n" + " (" + userInfo.userName + "):" + message.message + "\n");
+          if(message.fileNames != null)
+          {
+            foreach(var name in message.fileNames)
+            {
+              thread.WriteLine("Добавлен файл - {0}\n", name.ToString());
+            }
+          }
         }
         thread.Close();
+
+        if (needToCreateFilesFolder == true)
+        {
+          var pathToFilesFolder = Path.Combine(pathToThread, "files");
+          Directory.CreateDirectory(pathToFilesFolder);
+          foreach (Message message in messagesSorted)
+          {
+            DownloadLinkedFiles(message, pathToFilesFolder);
+          }
+        }
         mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, rootUserInfo.userID, "Тред скачан и находится здесь: " + pathToThread);
         Console.WriteLine("Тред скачан по адресу: " + pathToThreadFile);
       }
 
       catch (DirectoryNotFoundException dirEx)
       {
-        mattermostApi.PostMessage(messageEventInfo.channelID, ":rotating_light: Ошибка!!! Роберто не знает команды {0} :rotating_light:" +
+        mattermostApi.PostMessage(messageEventInfo.channelID, ":rotating_light: Ошибка!!! {0} :rotating_light:" +
           dirEx.Message);
         Console.WriteLine("Путь не найден: " + dirEx.Message);
+      }
+    }
+
+    ///<summary>
+    ///Скачать файлы прикрепленные к сообщению.
+    ///</summary>
+    /// <param name="messageEventInfo">Информация о событии.</param>
+    /// <param name="pathToFilesFolder">Путь до папки скачанного треда.</param>
+    private static void DownloadLinkedFiles(Message message, string pathToFilesFolder)
+    {
+      if(message.fileIDs != null)
+      {
+        var fileIDs = message.fileIDs;
+        int i = 0;
+        foreach(var fileID in fileIDs)
+        {
+          string pathToFile = Path.Combine(pathToFilesFolder, message.fileNames[i]);
+          mattermostApi.CreateLinkedFile(message.messageId, fileID, pathToFile);
+          i++;
+        }
       }
     }
 
