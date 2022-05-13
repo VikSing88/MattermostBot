@@ -215,7 +215,7 @@ namespace MattermostBot
           if (channelInfo.AutoPinNewMessage)
           {
             mattermostApi.PinMessage(messageEventInfo.id);
-            if (channelInfo.WelcomeThreadMessage != null)
+            if (!string.IsNullOrEmpty(channelInfo.WelcomeThreadMessage))
             {
               SendMessageToThread(channelInfo.WelcomeThreadMessage, messageEventInfo.id, channelInfo);
             }
