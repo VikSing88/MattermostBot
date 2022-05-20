@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
@@ -81,6 +82,17 @@ namespace ApiAdapter
     public Message[] GetThreadMessages(string postID)
     {
       return GetMessagesByRequest(Api.Combine("posts", postID, "thread"));
+    }
+
+
+    /// <summary>
+    /// Отсортировать тред.
+    /// .GroupBy необходим т.к. Mattermost присылает первое сообщение дважды, нужно от него избавиться.
+    /// </summary>
+    /// <param name="messages">Список сообщений в треде.</param>
+    public static IEnumerable<Message> GetMessagesSorted(IEnumerable<Message> messages)
+    {
+      return messages.GroupBy(x => x.messageId).Select(y => y.First()).OrderBy(message => message.dateTime);
     }
 
     public void PinMessage(string messageID)
@@ -215,8 +227,8 @@ namespace ApiAdapter
       JObject j = api.GetAsync(request).Result;
       PostList postList = j.ConvertToObject<PostList>();
       postList.List = postList.Convert(j).List;
-      return postList.List.Select(p => new Message { messageId = p.id, dateTime = p.create_at ??
-        DateTime.MinValue, userId = p.user_id, message = p.message, fileIDs = p.file_ids, fileNames = GetLinkedToPostFileNames(p) }).ToArray();
+      return postList.List.Select(p => new Message { messageId = p.id, dateTime = p.create_at ?? DateTime.MinValue,
+        userId = p.user_id, message = p.message, fileIDs = p.file_ids, fileNames = GetLinkedToPostFileNames(p) }).ToArray();
     }
 
     public MattermostApiAdapter(string uri, string token)
