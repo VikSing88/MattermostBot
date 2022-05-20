@@ -281,9 +281,11 @@ namespace MattermostBot
             }
             DownloadLinkedFiles(message, pathToFilesFolder);
             int i = 0;
-            foreach(var id in message.fileIDs)
+            var post = mattermostApi.GetPostByMessageID(message.messageId);
+            var fileNames = mattermostApi.GetLinkedToPostFileNames(post);
+            foreach (var id in message.fileIDs)
             {
-              thread.WriteLine("Добавлен файл - {0}\n", (string.Format("{0}.{1}", id.ToString(), GetFileType(message, i))));
+              thread.WriteLine("Добавлен файл - {0}\n", (string.Format("{0}.{1}", id.ToString(), GetFileType(fileNames, i))));
               i++;
             }
           }
@@ -324,10 +326,12 @@ namespace MattermostBot
       if(message.fileIDs != null)
       {
         var fileIDs = message.fileIDs;
+        var post = mattermostApi.GetPostByMessageID(message.messageId);
+        var fileNames = mattermostApi.GetLinkedToPostFileNames(post);
         int i = 0;
         foreach(var fileID in fileIDs)
         {
-          string pathToFile = Path.Combine(pathToFilesFolder, (string.Format("{0}.{1}", fileID.ToString(), GetFileType(message, i))));
+          string pathToFile = Path.Combine(pathToFilesFolder, (string.Format("{0}.{1}", fileID.ToString(), GetFileType(fileNames, i))));
           mattermostApi.CreateLinkedFile(message.messageId, fileID, pathToFile);
           i++;
         }
@@ -340,9 +344,9 @@ namespace MattermostBot
     /// <param name="message">Сообщение.</param>
     /// <param name="fileID">ИД файла.</param>
     /// <returns></returns>
-    private static string GetFileType(Message message, int fileID)
+    private static string GetFileType(string [] fileNames, int fileID)
     {
-      var fileNameArray = message.fileNames[fileID].Split('.');
+      var fileNameArray = fileNames[fileID].Split('.');
       var fileType = fileNameArray[fileNameArray.Length - 1]; ;
       return fileType;
     }

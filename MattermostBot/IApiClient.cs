@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MattermostApi;
 
 namespace ApiClient
 {
@@ -33,11 +34,6 @@ namespace ApiClient
     ///ID прикрепленных файлов
     ///</summary>
     public string[] fileIDs;
-
-    ///<summary>
-    ///Наименования прикрепленных файлов
-    ///</summary>
-    public string[] fileNames;
   }
 
   /// <summary>
@@ -170,6 +166,10 @@ namespace ApiClient
     ///<param name="file_id">ID файла</param>
     ///<param name="pathToFolder">Путь к папке для скачивания</param>
     public void CreateLinkedFile(string messageID, string file_id, string pathToFolder);
+
+    public string[] GetLinkedToPostFileNames(Post post);
+
+    public Post GetPostByMessageID(string messageID);
   }
 
   /// <summary>

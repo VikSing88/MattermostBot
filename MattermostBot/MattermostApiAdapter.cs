@@ -190,6 +190,12 @@ namespace ApiAdapter
         }, cancellationToken);
     }
 
+    public Post GetPostByMessageID(string messageID)
+    {
+      var post = Post.GetById(api, messageID).Result;
+      return post;
+    }
+
     public string[] GetLinkedToPostFileNames(Post post)
     {
       string[] postFileNames = null; 
@@ -228,7 +234,7 @@ namespace ApiAdapter
       PostList postList = j.ConvertToObject<PostList>();
       postList.List = postList.Convert(j).List;
       return postList.List.Select(p => new Message { messageId = p.id, dateTime = p.create_at ?? DateTime.MinValue,
-        userId = p.user_id, message = p.message, fileIDs = p.file_ids, fileNames = GetLinkedToPostFileNames(p) }).ToArray();
+        userId = p.user_id, message = p.message, fileIDs = p.file_ids}).ToArray();
     }
 
     public MattermostApiAdapter(string uri, string token)
