@@ -71,26 +71,29 @@ namespace ApiAdapter
       Post.Create(api, channelID, message, rootId);
     }
 
-    public async void CreateLinkedFile(string messageID, string file_id, string pathToFile)
+    public async Task<string> GetFileById(string messageID, string fileID, string pathToFile)
     {
       var post = Post.GetById(api, messageID).Result;
-      Stream createFile = File.Create(pathToFile);
-      await post.GetFile(api, file_id, createFile);
-      createFile.Close();
+      var originalFileName = post.GetFileInfo(api, fileID).Result.name;
+      var newFileName = fileID + Path.GetExtension(originalFileName);
+      var file = File.Create(Path.Combine(pathToFile, fileID + Path.GetExtension(newFileName)));
+      await post.GetFile(api, fileID, file);
+      file.Close();
+      return newFileName;
     }
-
+    
     public Message[] GetThreadMessages(string postID)
     {
-      return GetMessagesByRequest(Api.Combine("posts", postID, "thread"));
+      return  GetMessagesSorted(GetMessagesByRequest(Api.Combine("posts", postID, "thread"))).ToArray();
     }
 
 
     /// <summary>
-    /// Отсортировать тред.
-    /// .GroupBy необходим т.к. Mattermost присылает первое сообщение дважды, нужно от него избавиться.
+    /// Отфильтровать тред.
     /// </summary>
     /// <param name="messages">Список сообщений в треде.</param>
-    public static IEnumerable<Message> GetMessagesSorted(IEnumerable<Message> messages)
+    /// <remarks>.GroupBy необходим т.к. Mattermost присылает первое сообщение дважды, нужно от него избавиться.</remarks>
+    private IEnumerable<Message> GetMessagesSorted(Message[] messages)
     {
       return messages.GroupBy(x => x.messageId).Select(y => y.First()).OrderBy(message => message.dateTime);
     }
@@ -188,29 +191,6 @@ namespace ApiAdapter
             }
           }
         }, cancellationToken);
-    }
-
-    public Post GetPostByMessageID(string messageID)
-    {
-      var post = Post.GetById(api, messageID).Result;
-      return post;
-    }
-
-    public string[] GetLinkedToPostFileNames(Post post)
-    {
-      string[] postFileNames = null; 
-      int i = 0;
-      if (post.file_ids != null)
-      {
-        postFileNames = new string[post.file_ids.Length];
-        foreach (var fileID in post.file_ids)
-        {
-          postFileNames[i] = post.GetFileInfo(api, fileID).Result.name;
-          i++;
-        }
-        return postFileNames;
-      }
-      return postFileNames;
     }
 
     /// <summary>

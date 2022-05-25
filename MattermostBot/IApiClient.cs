@@ -159,17 +159,7 @@ namespace ApiClient
     public void StartReceivingServerMessages(Action<MessageEventInfo> newPostEventHandler, Action<string> errorEventHandler, 
       CancellationToken cancellationToken);
 
-    ///<summary>
-    ///Создать файл из сообщения
-    ///</summary>
-    ///<param name="messageID">ID сообщения</param>
-    ///<param name="file_id">ID файла</param>
-    ///<param name="pathToFolder">Путь к папке для скачивания</param>
-    public void CreateLinkedFile(string messageID, string file_id, string pathToFolder);
-
-    public string[] GetLinkedToPostFileNames(Post post);
-
-    public Post GetPostByMessageID(string messageID);
+    public Task<string> GetFileById(string messageID, string fileID, string pathToFile);
   }
 
   /// <summary>

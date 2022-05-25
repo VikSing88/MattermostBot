@@ -197,7 +197,7 @@ namespace MattermostBot
           .Connect(cancellationTokenSource.Token);
         while (true)
         {
-          foreach(var channelInfo in channelsInfo)
+          foreach (var channelInfo in channelsInfo)
           {
             tasks.Add(Task.Run(() => ProcessPinsList(channelInfo)));
           }
@@ -233,16 +233,20 @@ namespace MattermostBot
       }
       else 
       {
-        if (Regex.IsMatch(messageEventInfo.message, string.Format("(?:@{0})", mattermostApi.GetUserInfoByID(botUserID).userName), RegexOptions.IgnoreCase))
+        var botName = mattermostApi.GetUserInfoByID(botUserID).userName;
+        if (Regex.IsMatch(messageEventInfo.message, string.Format("(?:@{0})", botName), RegexOptions.IgnoreCase))
         {
           var rgx = new Regex(@"[-.?!)(,:\s]+");
-          var strs = rgx.Split(messageEventInfo.message.ToLower()).Where(s => !string.IsNullOrEmpty(s) && !s.Equals("@roberto")).ToList();
+          var strs = rgx.Split(messageEventInfo.message.ToLower()).Where(s => !string.IsNullOrEmpty(s) && 
+            !s.Equals(string.Format("@{0}", botName))).ToList();
           if (string.Join(' ', strs) == downloadCommand)
+          {
+            mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, messageEventInfo.userID, "Скачивание треда началось.");
             DownloadThread(messageEventInfo);
+          }
           else
             mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, messageEventInfo.userID, string.Format(
-              "Ошибка. Роберто не знает команды {0}\nДоступные команды: {1}",
-              messageEventInfo.message.Substring(messageEventInfo.message.IndexOf('@') + "@roberto".Length), "download"));
+              "Я не знаю такой команды.\nДоступные команды: {0}", "download"));
         }
       }
     }
@@ -254,8 +258,7 @@ namespace MattermostBot
     private static void DownloadThread(MessageEventInfo messageEventInfo)
     {
       Message[] messages = mattermostApi.GetThreadMessages(messageEventInfo.rootID);
-      IEnumerable<Message> messagesSorted = MattermostApiAdapter.GetMessagesSorted(messages);
-      UserInfo rootUserInfo = mattermostApi.GetUserInfoByID(messageEventInfo.userID);
+      UserInfo rootUserInfo = mattermostApi.GetUserInfoByID(messages[0].userId);
 
       var pathToThread = GetPathToSaveThread(pathToDownloadDirectory, rootUserInfo, messages[0].dateTime.ToLocalTime());
       try 
@@ -265,33 +268,28 @@ namespace MattermostBot
         Directory.CreateDirectory(pathToThread);
         var pathToThreadFile = Path.Combine(pathToThread, "thread.txt");
         StreamWriter thread = File.CreateText(pathToThreadFile);
-        foreach (Message message in messagesSorted)
+        foreach (Message message in messages)
         {
           var userInfo = mattermostApi.GetUserInfoByID(message.userId);
-          if (!string.IsNullOrEmpty(userInfo.firstName) && !string.IsNullOrEmpty(userInfo.lastName))
-            thread.WriteLine(message.dateTime.ToLocalTime() + "\n" + GetUserFirstName(userInfo) + " " + GetUserLastName(userInfo) + ": " + message.message + "\n");
-          else
-            thread.WriteLine(message.dateTime.ToLocalTime() + "\n" + GetUserUsername(userInfo) + ": " + message.message + "\n");
-          if(message.fileIDs != null)
+          thread.WriteLine(message.dateTime.ToLocalTime() + "\n" + GetUserName(userInfo) + ": " + message.message + "\n");
+          if (message.fileIDs != null)
           {
-            if(filesFolderExist == false)
+            if (filesFolderExist == false)
             {
               Directory.CreateDirectory(pathToFilesFolder);
               filesFolderExist = true;
             }
-            DownloadLinkedFiles(message, pathToFilesFolder);
-            int i = 0;
-            var post = mattermostApi.GetPostByMessageID(message.messageId);
-            var fileNames = mattermostApi.GetLinkedToPostFileNames(post);
-            foreach (var id in message.fileIDs)
-            {
-              thread.WriteLine("Добавлен файл - {0}\n", (string.Format("{0}.{1}", id.ToString(), GetFileType(fileNames, i))));
-              i++;
-            }
+            message.fileIDs
+              .ToList()
+              .ForEach(fileId =>
+              {
+                var fileName = mattermostApi.GetFileById(message.messageId, fileId, pathToFilesFolder).Result;
+                thread.WriteLine("Добавлен файл - {0}\n", fileName);
+              });
           }
         }
         thread.Close();
-        mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, rootUserInfo.userID, "Тред скачан и находится здесь: " + pathToThread);
+        mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, messageEventInfo.userID, "Тред скачан и находится здесь: " + pathToThread);
       }
 
       catch (DirectoryNotFoundException dirEx)
@@ -301,54 +299,21 @@ namespace MattermostBot
       }
     }
 
-    private static string GetUserFirstName(UserInfo userInfo)
-    {
-      return userInfo.firstName;
-    }
-
-    private static string GetUserLastName(UserInfo userInfo)
-    {
-      return userInfo.lastName;
-    }
-
-    private static string GetUserUsername(UserInfo userInfo)
-    {
-      return userInfo.userName;
-    }
-
-    ///<summary>
-    ///Скачать файлы прикрепленные к сообщению.
-    ///</summary>
-    /// <param name="messageEventInfo">Информация о событии.</param>
-    /// <param name="pathToFilesFolder">Путь до папки скачанного треда.</param>
-    private static void DownloadLinkedFiles(Message message, string pathToFilesFolder)
-    {
-      if(message.fileIDs != null)
-      {
-        var fileIDs = message.fileIDs;
-        var post = mattermostApi.GetPostByMessageID(message.messageId);
-        var fileNames = mattermostApi.GetLinkedToPostFileNames(post);
-        int i = 0;
-        foreach(var fileID in fileIDs)
-        {
-          string pathToFile = Path.Combine(pathToFilesFolder, (string.Format("{0}.{1}", fileID.ToString(), GetFileType(fileNames, i))));
-          mattermostApi.CreateLinkedFile(message.messageId, fileID, pathToFile);
-          i++;
-        }
-      }
-    }
-
     /// <summary>
-    /// Получить тип файла.
+    /// Получить имя, фамилию пользователя. Если их нет, получить никнейм.
     /// </summary>
-    /// <param name="message">Сообщение.</param>
-    /// <param name="fileID">ИД файла.</param>
-    /// <returns></returns>
-    private static string GetFileType(string [] fileNames, int fileID)
+    /// <param name="userInfo"></param>
+    /// <returns>Строка с полным именем пользователя. Если нет имени или фамилии, возвращаетя никнейм.</returns>
+    private static string GetUserName(UserInfo userInfo)
     {
-      var fileNameArray = fileNames[fileID].Split('.');
-      var fileType = fileNameArray[fileNameArray.Length - 1]; ;
-      return fileType;
+      if (!string.IsNullOrEmpty(userInfo.firstName) && !string.IsNullOrEmpty(userInfo.lastName))
+      {
+        return string.Format("{0} {1}", userInfo.firstName, userInfo.lastName);
+      }
+      else
+      {
+        return userInfo.userName.ToString();
+      }
     }
 
     /// <summary>
@@ -360,16 +325,8 @@ namespace MattermostBot
     private static string GetPathToSaveThread(string pathToDownloadDirectory, UserInfo rootUserInfo, DateTime rootDateTime)
     {
       var rootDateTimeString = rootDateTime.ToString("yyyy.MM.dd HH-mm");
-      if (rootUserInfo.firstName != null && rootUserInfo.lastName != null)
-      {
-        var path = Path.GetFullPath(Path.Combine(pathToDownloadDirectory, string.Format("{0} {1} {2}", rootDateTimeString, GetUserFirstName(rootUserInfo), GetUserLastName(rootUserInfo))));
-        return path;
-      }
-      else
-      {
-        var path = Path.GetFullPath(Path.Combine(pathToDownloadDirectory, string.Format("{0} {1}", rootDateTimeString, GetUserUsername(rootUserInfo))));
-        return path;
-      }
+      var path = Path.GetFullPath(Path.Combine(pathToDownloadDirectory, string.Format("{0} {1}", rootDateTimeString, GetUserName(rootUserInfo))));
+      return path;
     }
 
     /// <summary>
