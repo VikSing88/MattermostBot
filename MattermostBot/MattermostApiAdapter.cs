@@ -84,18 +84,7 @@ namespace ApiAdapter
     
     public Message[] GetThreadMessages(string postID)
     {
-      return  GetMessagesSorted(GetMessagesByRequest(Api.Combine("posts", postID, "thread"))).ToArray();
-    }
-
-
-    /// <summary>
-    /// Отфильтровать тред.
-    /// </summary>
-    /// <param name="messages">Список сообщений в треде.</param>
-    /// <remarks>.GroupBy необходим т.к. Mattermost присылает первое сообщение дважды, нужно от него избавиться.</remarks>
-    private IEnumerable<Message> GetMessagesSorted(Message[] messages)
-    {
-      return messages.GroupBy(x => x.messageId).Select(y => y.First()).OrderBy(message => message.dateTime);
+      return GetFilteredMessages(GetMessagesByRequest(Api.Combine("posts", postID, "thread"))).ToArray();
     }
 
     public void PinMessage(string messageID)
@@ -125,10 +114,10 @@ namespace ApiAdapter
     {
       try
       {
-      using var webSocket = new ClientWebSocket();      
-      webSocket.Options.SetRequestHeader("Authorization", $"Bearer {api.Settings.AccessToken}");
-      await webSocket.ConnectAsync(new Uri(GetWebSocketUri()), default);
-      await StartNewPostEventHandling(webSocket, newPostEventHandler, errorEventHandler, cancellationToken);
+        using var webSocket = new ClientWebSocket();      
+        webSocket.Options.SetRequestHeader("Authorization", $"Bearer {api.Settings.AccessToken}");
+        await webSocket.ConnectAsync(new Uri(GetWebSocketUri()), default);
+        await StartNewPostEventHandling(webSocket, newPostEventHandler, errorEventHandler, cancellationToken);
       }
       catch 
       { 
@@ -201,6 +190,17 @@ namespace ApiAdapter
     {
       var pattern = "http";
       return Regex.Replace(api.Settings.ServerUri.AbsoluteUri, pattern, "ws") + "api/v4/websocket";
+    }
+
+    /// <summary>
+    /// Отфильтровать лишние сообщения в треде.
+    /// </summary>
+    /// <param name="messages">Список сообщений в треде.</param>
+    /// <remarks>.GroupBy необходим т.к. Mattermost присылает первое сообщение дважды, нужно от него избавиться.</remarks>
+    /// <returns>Отфильтрованный список сообщений.</returns>
+    private IEnumerable<Message> GetFilteredMessages(Message[] messages)
+    {
+      return messages.GroupBy(x => x.messageId).Select(y => y.First()).OrderBy(message => message.dateTime);
     }
 
     /// <summary>

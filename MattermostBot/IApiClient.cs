@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using MattermostApi;
 
 namespace ApiClient
 {
@@ -103,9 +102,10 @@ namespace ApiClient
     /// <param name="rootID">ИД сообщения, от которого образован тред.</param>
     public void PostMessage(string channelID, string message, string rootID = null);
 
-    ///<summary>
-    ///Получить данные пользователя по ID.
-    ///</summary>
+    /// <summary>
+    /// Получить данные пользователя по ID.
+    /// </summary>
+    /// <returns>Информация о пользователе.</returns>
     public UserInfo GetUserInfoByID(string userID);
 
     /// <summary>
@@ -133,7 +133,7 @@ namespace ApiClient
     /// Получить список сообщений треда.
     /// </summary>
     /// <param name="messageId">ИД сообщения.</param>
-    /// <returns></returns>
+    /// <returns>Список сообщений в треде.</returns>
     public Message[] GetThreadMessages(string messageId);
 
     /// <summary>

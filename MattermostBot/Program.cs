@@ -102,9 +102,9 @@ namespace MattermostBot
     /// </summary>
     private static int channelCheckPeriodInMinutes;
 
-    ///<summary>
-    ///Путь к папке с сохраненными тредами
-    ///</summary>
+    /// <summary>
+    /// Путь к папке с сохраненными тредами
+    /// </summary>
     private static string pathToDownloadDirectory;
 
     /// <summary>
@@ -246,7 +246,7 @@ namespace MattermostBot
           }
           else
             mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, messageEventInfo.userID, string.Format(
-              "Я не знаю такой команды.\nДоступные команды: {0}", "download"));
+              "Я не знаю такой команды.\nДоступные команды: {0}", downloadCommand));
         }
       }
     }
@@ -258,27 +258,20 @@ namespace MattermostBot
     private static void DownloadThread(MessageEventInfo messageEventInfo)
     {
       Message[] messages = mattermostApi.GetThreadMessages(messageEventInfo.rootID);
-      UserInfo rootUserInfo = mattermostApi.GetUserInfoByID(messages[0].userId);
-
-      var pathToThread = GetPathToSaveThread(pathToDownloadDirectory, rootUserInfo, messages[0].dateTime.ToLocalTime());
+      var pathToThread = GetPathToSaveThread(pathToDownloadDirectory, messages[0].userId, messages[0].dateTime.ToLocalTime());
       try 
       {
         var pathToFilesFolder = Path.Combine(pathToThread, "files");
-        bool filesFolderExist = false;
         Directory.CreateDirectory(pathToThread);
         var pathToThreadFile = Path.Combine(pathToThread, "thread.txt");
         StreamWriter thread = File.CreateText(pathToThreadFile);
+        if (messages.Where(m => m.fileIDs != null).Count() > 0)
+          Directory.CreateDirectory(pathToFilesFolder);
         foreach (Message message in messages)
         {
-          var userInfo = mattermostApi.GetUserInfoByID(message.userId);
-          thread.WriteLine(message.dateTime.ToLocalTime() + "\n" + GetUserName(userInfo) + ": " + message.message + "\n");
+          thread.WriteLine(message.dateTime.ToLocalTime() + "\n" + GetUserName(message.userId) + ": " + message.message + "\n");
           if (message.fileIDs != null)
           {
-            if (filesFolderExist == false)
-            {
-              Directory.CreateDirectory(pathToFilesFolder);
-              filesFolderExist = true;
-            }
             message.fileIDs
               .ToList()
               .ForEach(fileId =>
@@ -302,17 +295,18 @@ namespace MattermostBot
     /// <summary>
     /// Получить имя, фамилию пользователя. Если их нет, получить никнейм.
     /// </summary>
-    /// <param name="userInfo"></param>
+    /// <param name="userID">ИД пользователя.</param>
     /// <returns>Строка с полным именем пользователя. Если нет имени или фамилии, возвращаетя никнейм.</returns>
-    private static string GetUserName(UserInfo userInfo)
+    private static string GetUserName(string userID)
     {
+      var userInfo = mattermostApi.GetUserInfoByID(userID);
       if (!string.IsNullOrEmpty(userInfo.firstName) && !string.IsNullOrEmpty(userInfo.lastName))
       {
         return string.Format("{0} {1}", userInfo.firstName, userInfo.lastName);
       }
       else
       {
-        return userInfo.userName.ToString();
+        return userInfo.userName;
       }
     }
 
@@ -321,11 +315,11 @@ namespace MattermostBot
     /// </summary>
     /// <param name="pathToDownloadDirectory">Путь до папки со всеми скачанными тредами.</param>
     /// <param name="rootDateTime">Дата создания корневого сообщения треда. </param>
-    /// <param name="rootUserInfo">Информация о создателе корневого сообщения треда.</param>
-    private static string GetPathToSaveThread(string pathToDownloadDirectory, UserInfo rootUserInfo, DateTime rootDateTime)
+    /// <param name="rootUserID">ИД создателя корневого сообщения треда.</param>
+    private static string GetPathToSaveThread(string pathToDownloadDirectory, string rootUserID, DateTime rootDateTime)
     {
       var rootDateTimeString = rootDateTime.ToString("yyyy.MM.dd HH-mm");
-      var path = Path.GetFullPath(Path.Combine(pathToDownloadDirectory, string.Format("{0} {1}", rootDateTimeString, GetUserName(rootUserInfo))));
+      var path = Path.GetFullPath(Path.Combine(pathToDownloadDirectory, string.Format("{0} {1}", rootDateTimeString, GetUserName(rootUserID))));
       return path;
     }
 
