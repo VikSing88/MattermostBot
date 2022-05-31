@@ -24,14 +24,19 @@ namespace ApiClient
     /// </summary>
     public string userId;
 
-    ///<summary>
-    ///Текст сообщения.
-    ///</summary>
+    /// <summary>
+    /// Список информации о реакциях на сообщение.
+    /// </summary>
+    public string[] reactions;
+    
+    /// <summary>
+    /// Текст сообщения.
+    /// </summary>
     public string message;
-
-    ///<summary>
-    ///ID прикрепленных файлов
-    ///</summary>
+    
+    /// <summary>
+    /// ID прикрепленных файлов.
+    /// </summary>
     public string[] fileIDs;
   }
 

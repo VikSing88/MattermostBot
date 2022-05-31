@@ -113,6 +113,7 @@ namespace MattermostBot
     private enum MessageAction
     {
       NeedUnpin,
+      NeedUnpinWithMessage,
       NeedWarning,
       DoNothing
     }
@@ -132,7 +133,7 @@ namespace MattermostBot
     {
       int resultValue;
       try
-      { 
+      {
         resultValue = Convert.ToInt32(value);
       }
       catch (Exception ex)
@@ -165,9 +166,10 @@ namespace MattermostBot
           var daysBeforeUnpining = TryConvertStringToInt("daysBeforeUnpining", config.GetSection($"Channels:{i}:DaysBeforeUnpining").Value,
             DaysBeforeUnpiningByDefault);
           var autoPinNewMessage = bool.Parse(config.GetSection($"Channels:{i}:AutoPinNewMessage").Value);
-          var welcomeMessage = config.GetSection($"Channels:{i}:WelcomeMessage").Value;
+          var welcomeThreadMessage = config.GetSection($"Channels:{i}:WelcomeThreadMessage").Value;
+          var reactionRequiest = config.GetSection($"Channels:{i}:ReactionRequest").Value;
 
-          channelsInfo.Add(new ChannelInfo(channelID, daysBeforeWarning, daysBeforeUnpining, autoPinNewMessage, welcomeMessage));
+          channelsInfo.Add(new ChannelInfo(channelID, daysBeforeWarning, daysBeforeUnpining, autoPinNewMessage, reactionRequiest, welcomeThreadMessage));
           i++;
         }
         mattermostUri = config["MattermostUri"];
@@ -222,12 +224,14 @@ namespace MattermostBot
       {
         foreach (var channelInfo in channelsInfo.Where(info => info.ChannelID == messageEventInfo.channelID))
         {
-          if (!string.IsNullOrEmpty(channelInfo.WelcomeMessage))
-            mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, messageEventInfo.userID, channelInfo.WelcomeMessage);
-
           if (channelInfo.AutoPinNewMessage)
+          {
             mattermostApi.PinMessage(messageEventInfo.id);
-
+            if (!string.IsNullOrEmpty(channelInfo.WelcomeThreadMessage))
+            {
+              SendMessageToThread(channelInfo.WelcomeThreadMessage, messageEventInfo.id, channelInfo);
+            }
+          }
           break;
         }
       }
@@ -331,8 +335,8 @@ namespace MattermostBot
       try
       {
         var pinnedMessages = mattermostApi.GetPinnedMessages(channelInfo.ChannelID);
-        var oldMessageTSList = GetOldMessageList(pinnedMessages, channelInfo);
-        ReplyMessageInOldThreads(oldMessageTSList, channelInfo);
+        var messageActionsList = GetMessageActionsList(pinnedMessages, channelInfo);
+        ProcessPinnedMessage(messageActionsList, channelInfo);
       }
       catch (Exception ex)
       {
@@ -345,17 +349,21 @@ namespace MattermostBot
     /// Отправить сообщение в тред.
     /// </summary>
     /// <param name="messageInfos">Список запиненных сообщений.</param>
-    private static void ReplyMessageInOldThreads(List<MessageInfo> messageInfos, ChannelInfo channelInfo)
+    private static void ProcessPinnedMessage(List<MessageInfo> messageInfos, ChannelInfo channelInfo)
     {
       foreach (MessageInfo messageInfo in messageInfos)
       {
-        if (messageInfo.action == MessageAction.NeedWarning)
+        if (messageInfo.action == MessageAction.NeedUnpin)
         {
-          SendMessage(String.Format(WarningTextMessage, channelInfo.DaysBeforeWarning), messageInfo.id, channelInfo);
+          UnpinMessage(messageInfo.id);
         }
-        else if (messageInfo.action == MessageAction.NeedUnpin)
+        else if (messageInfo.action == MessageAction.NeedWarning)
         {
-          SendMessage(UnpiningTextMessage, messageInfo.id, channelInfo);
+          SendMessageToThread(String.Format(WarningTextMessage, channelInfo.DaysBeforeWarning), messageInfo.id, channelInfo);
+        }
+        else if (messageInfo.action == MessageAction.NeedUnpinWithMessage)
+        {
+          SendMessageToThread(UnpiningTextMessage, messageInfo.id, channelInfo);
           AddEmoji(messageInfo.id);
           UnpinMessage(messageInfo.id);
         }
@@ -372,74 +380,66 @@ namespace MattermostBot
     }
 
     /// <summary>
-    /// Получить список старых закрепленных сообщений.
+    /// Получить список действий для закрепленных сообщений.
     /// </summary>
     /// <param name="pinedMessages">Полный список закрепленных сообщений.</param>
     /// <returns>Список закрепленных сообщений, с момента создания которых прошло больше DaysCountBeforeWarning дней.</returns>
-    private static List<MessageInfo> GetOldMessageList(Message[] pinedMessages, ChannelInfo channelInfo)
+    private static List<MessageInfo> GetMessageActionsList(Message[] pinedMessages, ChannelInfo channelInfo)
     {
-      var oldPinedMessageList = new List<MessageInfo>();
+      var pinedMessageActionsList = new List<MessageInfo>();
       if (pinedMessages != null)
       {
         foreach (var pinedMessage in pinedMessages)
         {
-          if (IsOldPinedMessage(pinedMessage.dateTime, Math.Min(channelInfo.DaysBeforeWarning, channelInfo.DaysBeforeUnpining)))
+          MessageAction msgAction = Task.Run(() => GetPinedMessageAction(pinedMessage, channelInfo)).Result;
+          pinedMessageActionsList.Add(new MessageInfo()
           {
-            MessageAction msgAction = Task.Run(() => GetPinedMessageAction(pinedMessage.messageId, channelInfo)).Result;
-            oldPinedMessageList.Add(new MessageInfo()
-            {
-              id = pinedMessage.messageId,
-              action = msgAction
-            });
-          }
+            id = pinedMessage.messageId,
+            action = msgAction
+          });
         }
       }
-      return oldPinedMessageList;
+      return pinedMessageActionsList;
     }
 
     /// <summary>
     /// Определить действие, которое необходимо с закрепленным сообщением.
     /// </summary>
-    /// <param name="messageId">ИД запиненного сообщения.</param>
+    /// <param name="message">Закрепленное сообщение.</param>
+    /// <param name="channelInfo">Информация о канале.</param>
     /// <returns>Действие, которое необходимо с закрепленным сообщением.</returns>
-    private static MessageAction GetPinedMessageAction(string messageId, ChannelInfo channelInfo) 
+    private static MessageAction GetPinedMessageAction(Message message, ChannelInfo channelInfo)
     {
-      var messages = mattermostApi.GetThreadMessages(messageId);
+      var messages = mattermostApi.GetThreadMessages(message.messageId);
       var latest_message = messages.OrderBy(m => m.dateTime).Last();
-      return DefineActionByDateAndAuthorOfMessage(latest_message.dateTime, latest_message.userId, channelInfo );
+
+      if (latest_message.dateTime != null)
+      {
+        if (message.reactions != null && message.reactions.Any(e => e == channelInfo.ReactionRequest))
+        {
+          return MessageAction.NeedUnpin;
+        }
+        else
+        if ((latest_message.userId != botUserID) & (IsOldPinedMessage(latest_message.dateTime, channelInfo.DaysBeforeWarning)))
+        {
+          return MessageAction.NeedWarning;
+        }
+        else
+        if ((latest_message.userId == botUserID) & (IsOldPinedMessage(latest_message.dateTime, channelInfo.DaysBeforeUnpining)))
+        {
+          return MessageAction.NeedUnpinWithMessage;
+        }
+      }
+      return MessageAction.DoNothing;
     }
 
     /// <summary>
     /// Добавить эмодзи на открепляемое сообщение.
     /// </summary>
-    /// <param name="messageTimestamp">Отметка времени открепляемого сообщения.</param>
+    /// <param name="messageID">ИД сообщения.</param>
     private static void AddEmoji(string messageID)
     {
       mattermostApi.AddReaction(botUserID, messageID, EmojiName);
-    }
-
-    /// <summary>
-    /// Определить действие над закрепленным сообщением по дате и автору последнего ответа.
-    /// </summary>
-    /// <param name="messageDateTime">Отметка времени последнего сообщения из треда.</param>
-    /// <param name="userID">ID автора последнего сообщения из треда. </param>
-    /// <param name="channelInfo">Информация о канале, в котором нахоидтся тред.</param>
-    /// <returns>Действие над закрепленным сообщением.</returns>
-    private static MessageAction DefineActionByDateAndAuthorOfMessage(DateTime messageDateTime, string userID, ChannelInfo channelInfo)
-    {
-      if (messageDateTime != null)      
-      {
-        if ((userID != botUserID) & (IsOldPinedMessage(messageDateTime, channelInfo.DaysBeforeWarning)))
-        {
-          return MessageAction.NeedWarning;
-        }
-        else
-        if ((userID == botUserID) & (IsOldPinedMessage(messageDateTime, channelInfo.DaysBeforeUnpining)))
-        {
-          return MessageAction.NeedUnpin;
-        }
-      }
-      return MessageAction.DoNothing;
     }
 
     /// <summary>
@@ -450,7 +450,7 @@ namespace MattermostBot
     /// <returns>Признак, является ли закрепленное сообщение старым.</returns>
     private static bool IsOldPinedMessage(DateTime messageDateTime, int DayCount)
     {
-      return messageDateTime.AddDays(DayCount) < DateTime.UtcNow; 
+      return messageDateTime.AddDays(DayCount) < DateTime.UtcNow;
     }
 
     /// <summary>
@@ -459,7 +459,7 @@ namespace MattermostBot
     /// <param name="textMessage">Текст отправляемого сообщения.</param>
     /// <param name="messageId">ИД закрепленного сообщения.</param>
     /// <param name="channelInfo">Информация о канале, в котором нахоидтся тред.</param>
-    private static void SendMessage(string textMessage, string messageId, ChannelInfo channelInfo)
+    private static void SendMessageToThread(string textMessage, string messageId, ChannelInfo channelInfo)
     {
       mattermostApi.PostMessage(channelInfo.ChannelID, textMessage, messageId);
     }

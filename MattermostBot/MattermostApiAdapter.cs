@@ -51,10 +51,11 @@ namespace ApiAdapter
       public string channel_id;
       public string user_id;
       public string root_id;
+      public string type;
       public string create_at;
       public string[] file_ids;
     }
-
+   
     public UserInfo GetUserInfoByID(string userID)
     {
       User u = User.GetById(api, userID).Result;
@@ -167,10 +168,11 @@ namespace ApiAdapter
                 {
                   var postData = JsonConvert.DeserializeObject<PostData>(message.data.post);
                   var post = Post.GetById(api, postData.id).Result;
-                  
-                  newPostEventHandler(
-                    new MessageEventInfo() { id = postData.id, message = postData.message, channelID = postData.channel_id, 
-                      userID = postData.user_id, rootID = postData.root_id});
+                  // У сообщений от обычных пользователей (т.е. НЕсистемных) тип сообщения не указывается.
+                  if (postData.type == string.Empty)
+                    newPostEventHandler(
+                      new MessageEventInfo() { id = postData.id, message = postData.message, channelID = postData.channel_id, 
+                        userID = postData.user_id, rootID = postData.root_id });
                 }
               }
               catch (Exception ex)
@@ -213,8 +215,37 @@ namespace ApiAdapter
       JObject j = api.GetAsync(request).Result;
       PostList postList = j.ConvertToObject<PostList>();
       postList.List = postList.Convert(j).List;
-      return postList.List.Select(p => new Message { messageId = p.id, dateTime = p.create_at ?? DateTime.MinValue,
-        userId = p.user_id, message = p.message, fileIDs = p.file_ids}).ToArray();
+      return postList.List.Select(p =>
+        new Message 
+        { 
+          messageId = p.id, 
+          dateTime = p.create_at ?? DateTime.MinValue, 
+          userId = p.user_id,
+          reactions = GetReactionsList(p),
+          message = p.message,
+          fileIDs = p.file_ids
+        }).ToArray();
+    }
+
+    /// <summary>
+    /// Получить список реакций на основное сообщение
+    /// </summary>
+    /// <param name="post">Сообщение MatterMost</param>
+    /// <returns>Список реакций.</returns>    
+    private string[] GetReactionsList(Post post)
+    {
+      string[] results = null;
+      JToken hasReaction = null;
+
+      if (post.AdditionalData.TryGetValue("has_reactions", out hasReaction)
+        && (hasReaction.ToString() == "True"))
+      {
+        results = post.metadata.reactions.Children()
+          .Where(elem => elem.Path.Contains("emoji_name"))
+          .Select(elem => elem.Values().First().ToString())
+          .ToArray();
+      }
+      return results;
     }
 
     public MattermostApiAdapter(string uri, string token)
