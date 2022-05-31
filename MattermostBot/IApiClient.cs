@@ -25,9 +25,19 @@ namespace ApiClient
     public string userId;
 
     /// <summary>
-    /// Список информации о реакциях на сообщение
+    /// Список информации о реакциях на сообщение.
     /// </summary>
     public string[] reactions;
+    
+    /// <summary>
+    /// Текст сообщения.
+    /// </summary>
+    public string message;
+    
+    /// <summary>
+    /// ID прикрепленных файлов.
+    /// </summary>
+    public string[] fileIDs;
   }
 
   /// <summary>
@@ -61,6 +71,29 @@ namespace ApiClient
     public string rootID;
   }
 
+  public class UserInfo
+  {
+    /// <summary>
+    /// ИД пользователя.
+    /// </summary>
+    public string userID;
+
+    /// <summary>
+    /// Имя пользователя.
+    /// </summary>
+    public string firstName;
+
+    /// <summary>
+    /// Фамилия пользователя.
+    /// </summary>
+    public string lastName;
+
+    /// <summary>
+    /// Никнейм пользователя.
+    /// </summary>
+    public string userName;
+  }
+
   /// <summary>
   /// Интерфейс api-клиента.
   /// </summary>
@@ -73,6 +106,12 @@ namespace ApiClient
     /// <param name="message">Текст сообщения.</param>
     /// <param name="rootID">ИД сообщения, от которого образован тред.</param>
     public void PostMessage(string channelID, string message, string rootID = null);
+
+    /// <summary>
+    /// Получить данные пользователя по ID.
+    /// </summary>
+    /// <returns>Информация о пользователе.</returns>
+    public UserInfo GetUserInfoByID(string userID);
 
     /// <summary>
     /// Получить список запиненных сообщений канала.
@@ -99,7 +138,7 @@ namespace ApiClient
     /// Получить список сообщений треда.
     /// </summary>
     /// <param name="messageId">ИД сообщения.</param>
-    /// <returns></returns>
+    /// <returns>Список сообщений в треде.</returns>
     public Message[] GetThreadMessages(string messageId);
 
     /// <summary>
@@ -124,6 +163,8 @@ namespace ApiClient
     /// <param name="cancellationToken">Токен отмены.</param>
     public void StartReceivingServerMessages(Action<MessageEventInfo> newPostEventHandler, Action<string> errorEventHandler, 
       CancellationToken cancellationToken);
+
+    public Task<string> GetFileById(string messageID, string fileID, string pathToFile);
   }
 
   /// <summary>

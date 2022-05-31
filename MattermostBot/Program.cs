@@ -1,11 +1,13 @@
-﻿using ApiAdapter;
-using ApiClient;
-using Microsoft.Extensions.Configuration;
-using System;
+﻿using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
+using ApiAdapter;
+using ApiClient;
+using Microsoft.Extensions.Configuration;
 
 namespace MattermostBot
 {
@@ -41,7 +43,12 @@ namespace MattermostBot
     /// <summary>
     /// Название эмодзи. 
     /// </summary>
-    const string EmojiName = "no_entry_sign";
+    const string EmojiName = "no_entry_sign";    
+    
+    /// <summary>
+    /// Команда скачки треда.
+    /// </summary>
+    const string downloadCommand = "download";
 
     #endregion
 
@@ -81,7 +88,7 @@ namespace MattermostBot
     private static readonly List<ChannelInfo> channelsInfo = new List<ChannelInfo>();
 
     /// <summary>
-    /// Список из task`ов, окончание которых нужно дождаться
+    /// Список из task`ов, окончание которых нужно дождаться.
     /// </summary>
     private static readonly List<Task> tasks = new List<Task>();
 
@@ -95,7 +102,11 @@ namespace MattermostBot
     /// </summary>
     private static int channelCheckPeriodInMinutes;
 
- 
+    /// <summary>
+    /// Путь к папке с сохраненными тредами.
+    /// </summary>
+    private static string pathToDownloadDirectory;
+
     /// <summary>
     /// Действие, которое надо совершить над запиненным сообщением.
     /// </summary>
@@ -117,7 +128,7 @@ namespace MattermostBot
     /// <param name="paramName">Имя параметра.</param>
     /// <param name="value">Конвертируемое значение.</param>
     /// <param name="defaultValue">Значение по умолчанию.</param>
-    /// <returns></returns>
+    /// <returns>Переданное значение в int, если конвертировать не удалось, возвращается значение int по умолчанию.</returns>
     private static int TryConvertStringToInt(string paramName, string value, int defaultValue)
     {
       int resultValue;
@@ -166,6 +177,7 @@ namespace MattermostBot
         botUserID = config["BotUserID"];
         channelCheckPeriodInMinutes = TryConvertStringToInt("ChannelCheckPeriodInMinutes", config["ChannelCheckPeriodInMinutes"],
             ChannelCheckPeriodInMinutesbyDefault);
+        pathToDownloadDirectory = config["PathToDownloadDirectory"];
       }
       catch (Exception ex)
       {
@@ -220,10 +232,99 @@ namespace MattermostBot
               SendMessageToThread(channelInfo.WelcomeThreadMessage, messageEventInfo.id, channelInfo);
             }
           }
-
           break;
         }
       }
+      else 
+      {
+        var botName = mattermostApi.GetUserInfoByID(botUserID).userName;
+        if (Regex.IsMatch(messageEventInfo.message, string.Format("(?:@{0})", botName), RegexOptions.IgnoreCase))
+        {
+          var rgx = new Regex(@"[-.?!)(,:\s]+");
+          var strs = rgx.Split(messageEventInfo.message.ToLower()).Where(s => !string.IsNullOrEmpty(s) && 
+            !s.Equals(string.Format("@{0}", botName))).ToList();
+          if (string.Join(' ', strs) == downloadCommand)
+          {
+            mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, messageEventInfo.userID, "Скачивание треда началось.");
+            DownloadThread(messageEventInfo);
+          }
+          else
+            mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, messageEventInfo.userID, string.Format(
+              "Я не знаю такой команды.\nДоступные команды: {0}", downloadCommand));
+        }
+      }
+    }
+
+    /// <summary>
+    /// Скачать тред.
+    /// </summary>
+    /// <param name="messageEventInfo">Информация о событии.</param>
+    private static void DownloadThread(MessageEventInfo messageEventInfo)
+    {
+      Message[] messages = mattermostApi.GetThreadMessages(messageEventInfo.rootID);
+      var pathToThread = GetPathToSaveThread(pathToDownloadDirectory, messages[0].userId, messages[0].dateTime.ToLocalTime());
+      try 
+      {
+        Directory.CreateDirectory(pathToThread);
+        var pathToFilesFolder = Path.Combine(pathToThread, "files");
+        if (messages.Where(m => m.fileIDs != null).Count() > 0)
+          Directory.CreateDirectory(pathToFilesFolder);
+        var pathToThreadFile = Path.Combine(pathToThread, "thread.txt");
+        StreamWriter thread = File.CreateText(pathToThreadFile);
+        foreach (Message message in messages)
+        {
+          thread.WriteLine(message.dateTime.ToLocalTime() + "\n" + GetUserName(message.userId) + ": " + message.message + "\n");
+          if (message.fileIDs != null)
+          {
+            message.fileIDs
+              .ToList()
+              .ForEach(fileId =>
+              {
+                var fileName = mattermostApi.GetFileById(message.messageId, fileId, pathToFilesFolder).Result;
+                thread.WriteLine("Добавлен файл - {0}\n", fileName);
+              });
+          }
+        }
+        thread.Close();
+        mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, messageEventInfo.userID, "Тред скачан и находится здесь: " + pathToThread);
+      }
+
+      catch (DirectoryNotFoundException dirEx)
+      {
+        mattermostApi.PostEphemeralMessage(messageEventInfo.channelID, messageEventInfo.userID, "Произошла ошибка при скачивании треда. Обратитесь к администратору.");
+        Console.WriteLine("Путь не найден: " + dirEx.Message);
+      }
+    }
+
+    /// <summary>
+    /// Получить имя, фамилию пользователя. Если их нет, получить никнейм.
+    /// </summary>
+    /// <param name="userID">ИД пользователя.</param>
+    /// <returns>Строка с полным именем пользователя. Если нет имени или фамилии, возвращаетя никнейм.</returns>
+    private static string GetUserName(string userID)
+    {
+      var userInfo = mattermostApi.GetUserInfoByID(userID);
+      if (!string.IsNullOrEmpty(userInfo.firstName) && !string.IsNullOrEmpty(userInfo.lastName))
+      {
+        return string.Format("{0} {1}", userInfo.firstName, userInfo.lastName);
+      }
+      else
+      {
+        return userInfo.userName;
+      }
+    }
+
+    /// <summary>
+    /// Создать путь для скачивания треда.
+    /// </summary>
+    /// <param name="pathToDownloadDirectory">Путь до папки со всеми скачанными тредами.</param>
+    /// <param name="rootDateTime">Дата создания корневого сообщения треда. </param>
+    /// <param name="rootUserID">ИД создателя корневого сообщения треда.</param>
+    private static string GetPathToSaveThread(string pathToDownloadDirectory, string rootUserID, DateTime rootDateTime)
+    {
+      var rootDateTimeString = rootDateTime.ToString("yyyy.MM.dd HH-mm");
+      var path = Path.GetFullPath(Path.Combine(pathToDownloadDirectory, string.Format("{0} {1}", rootDateTimeString, GetUserName(rootUserID))));
+      return path;
     }
 
     /// <summary>
@@ -279,7 +380,7 @@ namespace MattermostBot
     }
 
     /// <summary>
-    /// Получить список вействий для закрепленных сообщений.
+    /// Получить список действий для закрепленных сообщений.
     /// </summary>
     /// <param name="pinedMessages">Полный список закрепленных сообщений.</param>
     /// <returns>Список закрепленных сообщений, с момента создания которых прошло больше DaysCountBeforeWarning дней.</returns>
@@ -332,12 +433,10 @@ namespace MattermostBot
       return MessageAction.DoNothing;
     }
 
-
-
     /// <summary>
     /// Добавить эмодзи на открепляемое сообщение.
     /// </summary>
-    /// <param name="messageTimestamp">Отметка времени открепляемого сообщения.</param>
+    /// <param name="messageID">ИД сообщения.</param>
     private static void AddEmoji(string messageID)
     {
       mattermostApi.AddReaction(botUserID, messageID, EmojiName);

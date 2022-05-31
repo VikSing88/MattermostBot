@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
@@ -52,7 +52,15 @@ namespace ApiAdapter
       public string user_id;
       public string root_id;
       public string type;
+      public string create_at;
+      public string[] file_ids;
     }
+   
+    public UserInfo GetUserInfoByID(string userID)
+    {
+      User u = User.GetById(api, userID).Result;
+      return new UserInfo {userID = u.id, firstName = u.first_name, lastName = u.last_name, userName = u.username};
+    } 
 
     public Message[] GetPinnedMessages(string channelID)
     {
@@ -64,9 +72,20 @@ namespace ApiAdapter
       Post.Create(api, channelID, message, rootId);
     }
 
+    public async Task<string> GetFileById(string messageID, string fileID, string pathToFile)
+    {
+      var post = Post.GetById(api, messageID).Result;
+      var originalFileName = post.GetFileInfo(api, fileID).Result.name;
+      var newFileName = fileID + Path.GetExtension(originalFileName);
+      var file = File.Create(Path.Combine(pathToFile, fileID + Path.GetExtension(newFileName)));
+      await post.GetFile(api, fileID, file);
+      file.Close();
+      return newFileName;
+    }
+    
     public Message[] GetThreadMessages(string postID)
     {
-      return GetMessagesByRequest(Api.Combine("posts", postID, "thread"));
+      return GetFilteredMessages(GetMessagesByRequest(Api.Combine("posts", postID, "thread"))).ToArray();
     }
 
     public void PinMessage(string messageID)
@@ -94,10 +113,17 @@ namespace ApiAdapter
 
     async public void StartReceivingServerMessages(Action<MessageEventInfo> newPostEventHandler, Action<string> errorEventHandler, CancellationToken cancellationToken)
     {
-      using var webSocket = new ClientWebSocket();      
-      webSocket.Options.SetRequestHeader("Authorization", $"Bearer {api.Settings.AccessToken}");
-      await webSocket.ConnectAsync(new Uri(GetWebSocketUri()), default);
-      await StartNewPostEventHandling(webSocket, newPostEventHandler, errorEventHandler, cancellationToken);
+      try
+      {
+        using var webSocket = new ClientWebSocket();      
+        webSocket.Options.SetRequestHeader("Authorization", $"Bearer {api.Settings.AccessToken}");
+        await webSocket.ConnectAsync(new Uri(GetWebSocketUri()), default);
+        await StartNewPostEventHandling(webSocket, newPostEventHandler, errorEventHandler, cancellationToken);
+      }
+      catch 
+      { 
+        Console.WriteLine("Ошибка в StartReceivingServerMessages"); 
+      };
     }
 
     /// <summary>
@@ -141,6 +167,7 @@ namespace ApiAdapter
                 if (message.@event == "posted")
                 {
                   var postData = JsonConvert.DeserializeObject<PostData>(message.data.post);
+                  var post = Post.GetById(api, postData.id).Result;
                   // У сообщений от обычных пользователей (т.е. НЕсистемных) тип сообщения не указывается.
                   if (postData.type == string.Empty)
                     newPostEventHandler(
@@ -168,13 +195,23 @@ namespace ApiAdapter
     }
 
     /// <summary>
+    /// Отфильтровать лишние сообщения в треде.
+    /// </summary>
+    /// <param name="messages">Список сообщений в треде.</param>
+    /// <returns>Отфильтрованный список сообщений.</returns>
+    /// <remarks>.GroupBy необходим т.к. Mattermost присылает первое сообщение дважды, нужно от него избавиться.</remarks>
+    private IEnumerable<Message> GetFilteredMessages(Message[] messages)
+    {
+      return messages.GroupBy(x => x.messageId).Select(y => y.First()).OrderBy(message => message.dateTime);
+    }
+
+    /// <summary>
     /// Получить список сообщений Mattermost по строке запроса.
     /// </summary>
     /// <param name="request">Запрос.</param>
     /// <returns>Список сообщений.</returns>
     private Message[] GetMessagesByRequest(string request)
     {
-      var messageList = new List <Message> (); 
       JObject j = api.GetAsync(request).Result;
       PostList postList = j.ConvertToObject<PostList>();
       postList.List = postList.Convert(j).List;
@@ -184,7 +221,9 @@ namespace ApiAdapter
           messageId = p.id, 
           dateTime = p.create_at ?? DateTime.MinValue, 
           userId = p.user_id,
-          reactions = GetReactionsList(p)
+          reactions = GetReactionsList(p),
+          message = p.message,
+          fileIDs = p.file_ids
         }).ToArray();
     }
 
@@ -192,7 +231,7 @@ namespace ApiAdapter
     /// Получить список реакций на основное сообщение
     /// </summary>
     /// <param name="post">Сообщение MatterMost</param>
-    /// <returns>Список реакций</returns>    
+    /// <returns>Список реакций.</returns>    
     private string[] GetReactionsList(Post post)
     {
       string[] results = null;
