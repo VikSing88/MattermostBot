@@ -196,8 +196,8 @@ namespace ApiAdapter
     /// Отфильтровать лишние сообщения в треде.
     /// </summary>
     /// <param name="messages">Список сообщений в треде.</param>
-    /// <remarks>.GroupBy необходим т.к. Mattermost присылает первое сообщение дважды, нужно от него избавиться.</remarks>
     /// <returns>Отфильтрованный список сообщений.</returns>
+    /// <remarks>.GroupBy необходим т.к. Mattermost присылает первое сообщение дважды, нужно от него избавиться.</remarks>
     private IEnumerable<Message> GetFilteredMessages(Message[] messages)
     {
       return messages.GroupBy(x => x.messageId).Select(y => y.First()).OrderBy(message => message.dateTime);

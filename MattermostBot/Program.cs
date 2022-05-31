@@ -88,7 +88,7 @@ namespace MattermostBot
     private static readonly List<ChannelInfo> channelsInfo = new List<ChannelInfo>();
 
     /// <summary>
-    /// Список из task`ов, окончание которых нужно дождаться
+    /// Список из task`ов, окончание которых нужно дождаться.
     /// </summary>
     private static readonly List<Task> tasks = new List<Task>();
 
@@ -103,7 +103,7 @@ namespace MattermostBot
     private static int channelCheckPeriodInMinutes;
 
     /// <summary>
-    /// Путь к папке с сохраненными тредами
+    /// Путь к папке с сохраненными тредами.
     /// </summary>
     private static string pathToDownloadDirectory;
 
@@ -127,7 +127,7 @@ namespace MattermostBot
     /// <param name="paramName">Имя параметра.</param>
     /// <param name="value">Конвертируемое значение.</param>
     /// <param name="defaultValue">Значение по умолчанию.</param>
-    /// <returns></returns>
+    /// <returns>Переданное значение в int, если конвертировать не удалось, возвращается значение int по умолчанию.</returns>
     private static int TryConvertStringToInt(string paramName, string value, int defaultValue)
     {
       int resultValue;
@@ -261,12 +261,12 @@ namespace MattermostBot
       var pathToThread = GetPathToSaveThread(pathToDownloadDirectory, messages[0].userId, messages[0].dateTime.ToLocalTime());
       try 
       {
-        var pathToFilesFolder = Path.Combine(pathToThread, "files");
         Directory.CreateDirectory(pathToThread);
-        var pathToThreadFile = Path.Combine(pathToThread, "thread.txt");
-        StreamWriter thread = File.CreateText(pathToThreadFile);
+        var pathToFilesFolder = Path.Combine(pathToThread, "files");
         if (messages.Where(m => m.fileIDs != null).Count() > 0)
           Directory.CreateDirectory(pathToFilesFolder);
+        var pathToThreadFile = Path.Combine(pathToThread, "thread.txt");
+        StreamWriter thread = File.CreateText(pathToThreadFile);
         foreach (Message message in messages)
         {
           thread.WriteLine(message.dateTime.ToLocalTime() + "\n" + GetUserName(message.userId) + ": " + message.message + "\n");
